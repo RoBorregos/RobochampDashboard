@@ -11,8 +11,6 @@ import {
 } from "~/app/_components/shadcn/ui/select";
 import Header from "rbrgs/app/_components/header";
 import { useState } from "react";
-import { FormChallengeB } from "../forms/FormChallengeB";
-import { FormChallengeC } from "../forms/FormChallengeC";
 import { useSession } from "next-auth/react";
 import { Role } from "@prisma/client";
 
@@ -21,23 +19,23 @@ export default function JudgePage() {
 
   const session = useSession();
 
-  if (
-    session.data?.user?.role !== Role.ADMIN &&
-    session.data?.user?.role !== Role.JUDGE
-  ) {
-    return (
-      <main className="mt-[4rem] h-96 bg-black text-sm text-white md:text-base">
-        <div className="md:pb-20">
-          <Header title="Judge" subtitle="" />
-        </div>
-        <div className="p-2">
-          <h1 className="mb-5 text-center text-4xl">
-            You don&apos;t have permission to access this page.
-          </h1>
-        </div>
-      </main>
-    );
-  }
+  // if (
+  //   session.data?.user?.role !== Role.ADMIN &&
+  //   session.data?.user?.role !== Role.JUDGE
+  // ) {
+  //   return (
+  //     <main className="mt-[4rem] h-96 bg-black text-sm text-white md:text-base">
+  //       <div className="md:pb-20">
+  //         <Header title="Judge" subtitle="" />
+  //       </div>
+  //       <div className="p-2">
+  //         <h1 className="mb-5 text-center text-4xl">
+  //           You don&apos;t have permission to access this page.
+  //         </h1>
+  //       </div>
+  //     </main>
+  //   );
+  // }
 
   return (
     <main className="mt-[4rem] h-96 bg-black text-sm text-white md:text-base">
@@ -59,13 +57,7 @@ export default function JudgePage() {
 
             <SelectContent>
               <SelectItem value="challengeA" className="cursor-pointer">
-                Pista A - Pelota
-              </SelectItem>
-              <SelectItem value="challengeB" className="cursor-pointer">
-                Pista B - Seguidor de línea
-              </SelectItem>
-              <SelectItem value="challengeC" className="cursor-pointer">
-                Pista C - Laberinto
+                Pista
               </SelectItem>
             </SelectContent>
           </Select>
@@ -85,18 +77,6 @@ const ShowForm = ({ selection }: { selection: string }) => {
       return (
         <ChallengeWrapper>
           <FormChallengeA />
-        </ChallengeWrapper>
-      );
-    case "challengeB":
-      return (
-        <ChallengeWrapper>
-          <FormChallengeB />
-        </ChallengeWrapper>
-      );
-    case "challengeC":
-      return (
-        <ChallengeWrapper>
-          <FormChallengeC />
         </ChallengeWrapper>
       );
     default:

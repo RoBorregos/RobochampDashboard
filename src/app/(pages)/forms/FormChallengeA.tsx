@@ -33,11 +33,18 @@ export const FormChallengeA = () => {
   const form = useForm<FormData>({
     resolver: zodResolver(challengeASchema),
     defaultValues: {
-      flagsAccomplished: 0,
       finishedTrack: false,
+      redCubes: 0,
+      greenCubes: 0,
+      blueCubes: 0,
+      yellowCubes: 0,
+      seesawCrossings: 0,
+      cablesCut: 0,
+      incorrectCut: false,
       genericFormSchema: {
         obtainedBonus: false,
         roundId: "1",
+        roundTimeSeconds: 0,
       },
     },
   });
@@ -76,6 +83,20 @@ export const FormChallengeA = () => {
   }));
 
   function onSubmit(data: FormData) {
+    // Basic enforcement: cannot score zone B if zone A not completed (at least 4 cubes in deposit)
+    const cubesInDeposit =
+      (data.redCubes ?? 0) +
+      (data.greenCubes ?? 0) +
+      (data.blueCubes ?? 0) +
+      (data.yellowCubes ?? 0);
+
+    if ((data.cablesCut ?? 0) > 0 && cubesInDeposit < 4) {
+      toast(
+        "No se puede calificar la Zona B antes de completar la Zona A (mínimo 4 cubos en depósito).",
+      );
+      return;
+    }
+
     createEvaluation.mutate(data);
     toast("Se ha enviado la evaluación!", {
       description: (
@@ -94,32 +115,6 @@ export const FormChallengeA = () => {
       >
         <FormField
           control={form.control}
-          name="flagsAccomplished"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Flags accomplished</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  defaultValue={field.value.toString()}
-                  className="flex flex-col"
-                >
-                  {[0, 1, 2, 3, 4].map((value) => (
-                    <FormItem key={value} className="flex items-center gap-3">
-                      <FormControl>
-                        <RadioGroupItem value={value.toString()} />
-                      </FormControl>
-                      <FormLabel className="font-normal">{value}</FormLabel>
-                    </FormItem>
-                  ))}
-                </RadioGroup>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
           name="finishedTrack"
           render={({ field }) => (
             <FormItem>
@@ -135,6 +130,112 @@ export const FormChallengeA = () => {
             </FormItem>
           )}
         />
+        {/* <div className="rounded border p-4">
+          <h3 className="font-semibold">Zona A — Cubos y Sube y Baja</h3>
+          <p className="text-sm text-slate-300">
+            Cada cubo rojo/verde/azul = 10 pts, amarillo = 35 pts, cruzar sube y
+            baja = 25 pts. Máx 120 pts. Se cuentan los cubos que estén en el
+            depósito al final de la ronda.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-3"> */}
+        <FormField
+          control={form.control}
+          name="redCubes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Red cubes in deposit</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="greenCubes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Green cubes in deposit</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="blueCubes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Blue cubes in deposit</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="yellowCubes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Yellow cubes in deposit</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="seesawCrossings"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Seesaw crossings</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Zone B scoring inputs */}
+        <FormField
+          control={form.control}
+          name="cablesCut"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Cables cut (0-4)</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="incorrectCut"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Incorrect cable cut (ended round)</FormLabel>
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  className="ml-3"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {/* Other things */}
         <FormField
           control={form.control}
           name="genericFormSchema.obtainedBonus"

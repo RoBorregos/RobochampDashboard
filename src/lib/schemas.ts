@@ -21,13 +21,40 @@ export const genericDataSchema = z.object({
 
 export const challengeASchema = z.object({
   genericFormSchema: genericDataSchema,
-  flagsAccomplished: z.coerce
-    .number({
-      message: "flagsAccomplished must be an integer",
-    })
+  // Top-level fields for Zone A and Zone B (flat like original ChallengeA)
+  redCubes: z.coerce
+    .number()
     .int()
-    .min(0, { message: "flagsAccomplished must be at least 0" })
-    .max(4, { message: "flagsAccomplished must be at most 4" }),
+    .min(0, { message: "redCubes must be >= 0" })
+    .max(4, { message: "redCubes must be <= 4" }),
+  greenCubes: z.coerce
+    .number()
+    .int()
+    .min(0, { message: "greenCubes must be >= 0" })
+    .max(4, { message: "greenCubes must be <= 4" }),
+  blueCubes: z.coerce
+    .number()
+    .int()
+    .min(0, { message: "blueCubes must be >= 0" })
+    .max(4, { message: "blueCubes must be <= 4" }),
+  yellowCubes: z.coerce
+    .number()
+    .int()
+    .min(0, { message: "yellowCubes must be >= 0" })
+    .max(4, { message: "yellowCubes must be <= 4" }),
+  seesawCrossings: z.coerce
+    .number()
+    .int()
+    .min(0, { message: "seesawCrossings must be >= 0" })
+    .max(20, { message: "seesawCrossings must be a small integer" }),
+
+  cablesCut: z.coerce
+    .number()
+    .int()
+    .min(0, { message: "cablesCut must be >= 0" })
+    .max(4, { message: "cablesCut must be <= 4" }),
+  incorrectCut: z.boolean({ message: "incorrectCut must be a boolean" }),
+
   finishedTrack: z.boolean({
     message: "finishedTrack must be a boolean",
   }),
