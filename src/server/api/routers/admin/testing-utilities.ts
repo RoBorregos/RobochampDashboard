@@ -61,12 +61,12 @@ export const testingUtilitiesRouter = createTRPCRouter({
       testTeams.push(team);
     }
 
-    // Generate schedules with test times
+    // Generate schedules with test times for 2 pistas
     const startTimes = ["08:30", "12:30", "16:30"];
-    const pistaNames = ["Pista A", "Pista B", "Pista C"];
+    const pistaNames = ["Pista A", "Pista B"];
     const challengeNames = ["Challenge 1", "Challenge 2", "Challenge 3"];
 
-    // Generate 9 tables: 3 rounds × 3 challenges per round
+    // Generate schedules: 3 rounds, each team gets one slot per round across 2 pistas
     for (let round = 1; round <= 3; round++) {
       const startTime = startTimes[round - 1];
       if (!startTime) continue;
@@ -74,66 +74,48 @@ export const testingUtilitiesRouter = createTRPCRouter({
       const [startHour, startMinute] = startTime.split(":").map(Number);
       const baseStartMinutes = (startHour ?? 8) * 60 + (startMinute ?? 30);
 
-      // Create 3 challenges for this round
-      for (let challengeIndex = 0; challengeIndex < 3; challengeIndex++) {
-        const challengeName = challengeNames[challengeIndex];
-        if (!challengeName) continue;
+      const totalTimeSlots = Math.ceil(testTeams.length / 2);
+      let currentSlotMinutes = baseStartMinutes;
 
-        const timePerChallenge = Math.ceil(testTeams.length / 3) * 6;
-        const breakBetweenChallenges = 1;
+      for (let slotIndex = 0; slotIndex < totalTimeSlots; slotIndex++) {
+        const hour = Math.floor(currentSlotMinutes / 60);
+        const minute = currentSlotMinutes % 60;
+        const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "00")}`;
 
-        const challengeStartMinutes =
-          challengeIndex === 0
-            ? baseStartMinutes
-            : baseStartMinutes +
-              challengeIndex * (timePerChallenge + breakBetweenChallenges);
+        for (let pistaIndex = 0; pistaIndex < 2; pistaIndex++) {
+          const teamIndex = slotIndex * 2 + pistaIndex;
+          if (teamIndex >= testTeams.length) break;
 
-        let currentSlotMinutes = challengeStartMinutes;
-        const totalTimeSlots = Math.ceil(testTeams.length / 3);
+          const team = testTeams[teamIndex];
+          if (!team) continue;
 
-        for (let slotIndex = 0; slotIndex < totalTimeSlots; slotIndex++) {
-          const hour = Math.floor(currentSlotMinutes / 60);
-          const minute = currentSlotMinutes % 60;
-          const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+          const pistaAssignment = (pistaIndex + (round - 1)) % 2;
+          const pistaName = pistaNames[pistaAssignment];
 
-          for (let pistaIndex = 0; pistaIndex < 3; pistaIndex++) {
-            const teamIndex = slotIndex * 3 + pistaIndex;
-            if (teamIndex >= testTeams.length) break;
+          let roundRecord = await ctx.db.round.findFirst({
+            where: { teamId: team.id, number: round },
+          });
 
-            const team = testTeams[teamIndex];
-            if (!team) continue;
-
-            const teamBasePista = teamIndex % 3;
-            const roundStartPista = (teamBasePista + (round - 1)) % 3;
-            const finalPistaIndex = (roundStartPista + challengeIndex) % 3;
-            const pistaName = pistaNames[finalPistaIndex];
-            if (!pistaName) continue;
-
-            let roundRecord = await ctx.db.round.findFirst({
-              where: { teamId: team.id, number: round },
-            });
-
-            if (!roundRecord) {
-              roundRecord = await ctx.db.round.create({
-                data: {
-                  teamId: team.id,
-                  number: round,
-                  isVisible: false,
-                },
-              });
-            }
-
-            await ctx.db.challenge.create({
+          if (!roundRecord) {
+            roundRecord = await ctx.db.round.create({
               data: {
-                roundId: roundRecord.id,
-                name: `${challengeName} - ${pistaName}`,
-                time: ComputeDate({ date: timeString }),
+                teamId: team.id,
+                number: round,
+                isVisible: false,
               },
             });
           }
 
-          currentSlotMinutes += 6;
+          await ctx.db.challenge.create({
+            data: {
+              roundId: roundRecord.id,
+              name: `${pistaName}`,
+              time: ComputeDate({ date: timeString }),
+            },
+          });
         }
+
+        currentSlotMinutes += 7;
       }
     }
 
@@ -141,7 +123,7 @@ export const testingUtilitiesRouter = createTRPCRouter({
       success: true,
       message: "Test case executed successfully!",
       teamsCreated: testTeams.length,
-      tablesGenerated: 9,
+      tablesGenerated: 3,
       rotationPattern:
         "Each team follows systematic pista rotation across rounds",
     };

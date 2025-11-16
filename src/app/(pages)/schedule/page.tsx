@@ -19,7 +19,7 @@ type ScheduleTeam = {
   rounds: ScheduleRound[];
 };
 
-type Cell = { A?: string; B?: string; C?: string };
+type Cell = { A?: string; B?: string };
 type RoundBucket = { times: Set<string>; rows: Record<string, Cell> };
 
 export default function SchedulePage() {
@@ -75,11 +75,10 @@ export default function SchedulePage() {
     const mm = String(d.getMinutes()).padStart(2, "0");
     return `${hh}:${mm}`;
   };
-  const getTrackFromName = (name: string): "A" | "B" | "C" | null => {
+  const getTrackFromName = (name: string): "A" | "B" | null => {
     const n = name.toLowerCase();
     if (n.includes("pista a") || n.includes("track a")) return "A";
     if (n.includes("pista b") || n.includes("track b")) return "B";
-    if (n.includes("pista c") || n.includes("track c")) return "C";
     return null;
   };
 
@@ -105,7 +104,6 @@ export default function SchedulePage() {
         const row = (bucket.rows[tKey] ??= {});
         if (track === "A") row.A = team.name ?? "";
         else if (track === "B") row.B = team.name ?? "";
-        else row.C = team.name ?? "";
       }
     }
   }
@@ -148,7 +146,6 @@ export default function SchedulePage() {
                         <th className="p-4 text-left font-semibold">Time</th>
                         <th className="p-4 text-left font-semibold">Track A</th>
                         <th className="p-4 text-left font-semibold">Track B</th>
-                        <th className="p-4 text-left font-semibold">Track C</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -169,11 +166,6 @@ export default function SchedulePage() {
                             </td>
                             <td className="p-4">
                               {cell.B ?? (
-                                <span className="text-gray-500">-</span>
-                              )}
-                            </td>
-                            <td className="p-4">
-                              {cell.C ?? (
                                 <span className="text-gray-500">-</span>
                               )}
                             </td>
@@ -204,9 +196,11 @@ export default function SchedulePage() {
               <h4 className="mb-2 font-semibold text-white">Event Format:</h4>
               <ul className="space-y-1 text-gray-300">
                 <li>3 competition rounds</li>
-                <li>3 tracks per round (A, B, C)</li>
-                <li>Each team goes through all 3 tracks</li>
-                <li>5 minutes per track</li>
+                <li>2 tracks per round (A, B)</li>
+                <li>Each team goes through both tracks each round</li>
+                <li>
+                  7 minutes per slot: 1 minute calibration + 6 minutes run
+                </li>
               </ul>
             </div>
             <div>
