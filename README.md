@@ -1,8 +1,8 @@
-# Candidates Dashboard
+# Robochamp Dashboard
 
 ## Description
 
-This is a web page for competitors, visitors and judges to be used during the Candidates anual competition we host. Features include:
+This is a web page for competitors, visitors and judges to be used during the Robochamp anual competition we host. Features include:
 
 - Informational landing page.
 - Live scoreboard and Twitch stream.
