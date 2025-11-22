@@ -201,47 +201,49 @@ export default function BracketsPage() {
             </div>
 
             {/* Bracket Visualization */}
-            <div key={category} className="relative z-10 w-full max-w-[90rem] flex justify-center items-center gap-8 md:gap-16 overflow-x-auto pb-12 px-4 scrollbar-hide">
+            <div key={category} className="relative z-10 w-full overflow-x-auto pb-12 px-4 scrollbar-hide">
+                <div className="min-w-max mx-auto flex justify-center items-center gap-8 md:gap-16">
 
-                {/* Left Side */}
-                <div className="flex gap-8 md:gap-16">
-                    {data.leftSide.map((round, i) => (
-                        <div key={i} className="flex flex-col items-center">
-                            <h3 className="text-blue-400 text-sm font-semibold mb-8">{round.name}</h3>
-                            <MatchColumn matches={round.matches} align="left" />
-                        </div>
-                    ))}
-                </div>
-
-                {/* Center Final */}
-                <div className="flex flex-col items-center justify-center px-8 md:px-16 relative">
-                    <h3 className="text-yellow-400 text-sm font-bold mb-8">Grand Final</h3>
-
-                    <div className="flex flex-col gap-8 items-center scale-110 relative z-10">
-                        <TeamNode name={data.final.team1} align="left" />
-
-                        <div className="relative flex items-center justify-center">
-                            <div className="h-12 w-[2px] bg-yellow-500/50 absolute -top-12"></div>
-                            <div className="h-12 w-[2px] bg-yellow-500/50 absolute -bottom-12"></div>
-                            <div className="text-2xl font-bold text-yellow-500 px-4">
-                                VS
+                    {/* Left Side */}
+                    <div className="flex gap-8 md:gap-16">
+                        {data.leftSide.map((round, i) => (
+                            <div key={i} className="flex flex-col items-center">
+                                <h3 className="text-blue-400 text-sm font-semibold mb-8">{round.name}</h3>
+                                <MatchColumn matches={round.matches} align="left" />
                             </div>
-                        </div>
-
-                        <TeamNode name={data.final.team2} align="right" />
+                        ))}
                     </div>
-                </div>
 
-                {/* Right Side */}
-                <div className="flex gap-8 md:gap-16 flex-row-reverse">
-                    {data.rightSide.map((round, i) => (
-                        <div key={i} className="flex flex-col items-center">
-                            <h3 className="text-blue-400 text-sm font-semibold mb-8">{round.name}</h3>
-                            <MatchColumn matches={round.matches} align="right" />
+                    {/* Center Final */}
+                    <div className="flex flex-col items-center justify-center px-8 md:px-16 relative">
+                        <h3 className="text-yellow-400 text-sm font-bold mb-8">Grand Final</h3>
+
+                        <div className="flex flex-col gap-8 items-center scale-110 relative z-10">
+                            <TeamNode name={data.final.team1} align="left" />
+
+                            <div className="relative flex items-center justify-center">
+                                <div className="h-12 w-[2px] bg-yellow-500/50 absolute -top-12"></div>
+                                <div className="h-12 w-[2px] bg-yellow-500/50 absolute -bottom-12"></div>
+                                <div className="text-2xl font-bold text-yellow-500 px-4">
+                                    VS
+                                </div>
+                            </div>
+
+                            <TeamNode name={data.final.team2} align="right" />
                         </div>
-                    ))}
-                </div>
+                    </div>
 
+                    {/* Right Side */}
+                    <div className="flex gap-8 md:gap-16 flex-row-reverse">
+                        {data.rightSide.map((round, i) => (
+                            <div key={i} className="flex flex-col items-center">
+                                <h3 className="text-blue-400 text-sm font-semibold mb-8">{round.name}</h3>
+                                <MatchColumn matches={round.matches} align="right" />
+                            </div>
+                        ))}
+                    </div>
+
+                </div>
             </div>
         </div>
     );
