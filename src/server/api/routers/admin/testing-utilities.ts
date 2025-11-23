@@ -113,15 +113,13 @@ export const testingUtilitiesRouter = createTRPCRouter({
               where: { teamId: team.id, number: round },
             });
 
-            if (!roundRecord) {
-              roundRecord = await ctx.db.round.create({
-                data: {
-                  teamId: team.id,
-                  number: round,
-                  isVisible: false,
-                },
-              });
-            }
+            roundRecord ??= await ctx.db.round.create({
+              data: {
+                teamId: team.id,
+                number: round,
+                isVisible: false,
+              },
+            });
 
             await ctx.db.challenge.create({
               data: {
