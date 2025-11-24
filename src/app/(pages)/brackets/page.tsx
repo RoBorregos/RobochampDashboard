@@ -128,8 +128,6 @@ function TeamPill({ name, isWinner, small = false }: { name: string; isWinner?: 
                 : "bg-[#1a1a1a] border-[#333] text-slate-400 hover:border-slate-600"}
         `}>
             <span className="truncate px-4">{name}</span>
-            {/* Connector Line Stub (Right side) */}
-            {!small && <div className="absolute right-0 top-1/2 w-4 h-[1px] bg-slate-700 translate-x-full hidden md:block"></div>}
         </div>
     );
 }
