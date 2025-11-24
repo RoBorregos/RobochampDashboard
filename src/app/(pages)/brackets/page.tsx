@@ -184,7 +184,7 @@ function GroupBracket({ group }: { group: Group }) {
             {/* Group winner */}
             <div className="relative">
                 <TeamPill name={groupFinal.winner ?? 'TBD'} isWinner />
-                <div className="absolute left-full top-1/2 w-12 h-[1px] bg-blue-600 shadow-[0_0_6px_rgba(59,130,246,0.6)] hidden md:block"></div>
+                
             </div>
         </div>
     );
