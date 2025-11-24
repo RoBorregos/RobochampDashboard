@@ -8,7 +8,7 @@ interface Match {
     id: string;
     team1?: string;
     team2?: string;
-    team3?: string;
+    team3?: string; // Used only in advanced triple quarter representation
     winner?: string;
 }
 
@@ -22,21 +22,23 @@ interface AdvancedBracketData {
     rounds: Round[];
     final: Match;
     thirdPlace?: Match;
+    winner?: string;
 }
 
 // --- Beginners Bracket Interfaces (3 Groups) ---
 interface Group {
     id: string;
     name: string;
-    rounds: Round[]; // Full bracket history for the group
-    finalMatch: Match; // The match between the top 2 of this group (helper)
-    colorClass: string; // Color theme for this group
+    rounds: Round[]; // Preliminary + Qualifiers + Group Final
+    finalMatch: Match; // Last match deciding the group semifinalist
+    seeds?: string[]; // Ordered list of initial teams for vertical display
 }
 
 interface BeginnersBracketData {
     groups: Group[];
-    grandFinal: Match;
-    thirdPlaceTeam: string; // Static assignment for the 3rd group winner
+    semifinalists: string[]; // Exactly 3 (one per group)
+    final: Match; // Final between 2 of the semifinalists
+    thirdPlaceTeam: string; // Automatic third place (the semifinalist not in final)
 }
 
 // --- Data Constants ---
@@ -44,79 +46,48 @@ interface BeginnersBracketData {
 const BEGINNERS_DATA: BeginnersBracketData = {
     groups: [
         {
-            id: "g1",
-            name: "Grupo 1",
-            colorClass: "bg-purple-600",
+            id: "ga",
+            name: "Grupo A",
+            seeds: ["Team A1", "Team A5", "Team A2", "Team A3", "Team A4"],
             rounds: [
-                {
-                    name: "Eliminatoria",
-                    matches: [
-                        { id: "g1_r1_m1", team1: "Team A5", team2: "Team A4", winner: "Team A4" },
-                        // Byes are implicit or visual only in this simple structure, 
-                        // but for 5 teams we need 1 match to reduce 5->4, then 4->2, then 2->1
-                    ]
-                },
-                {
-                    name: "Semifinales",
-                    matches: [
-                        { id: "g1_r2_m1", team1: "Team A1", team2: "Team A4", winner: "Team A1" },
-                        { id: "g1_r2_m2", team1: "Team A2", team2: "Team A3", winner: "Team A2" }
-                    ]
-                },
-                {
-                    name: "Final Grupo",
-                    matches: [
-                        { id: "g1_final", team1: "Team A1", team2: "Team A2", winner: "Team A1" }
-                    ]
-                }
+                { name: "Prelim", matches: [ { id: "ga_pre", team1: "Team A1", team2: "Team A5", winner: "Team A1" } ] },
+                { name: "Qualifiers", matches: [
+                    { id: "ga_q1", team1: "Team A1", team2: "Team A2", winner: "Team A1" },
+                    { id: "ga_q2", team1: "Team A3", team2: "Team A4", winner: "Team A3" }
+                ]},
+                { name: "Group Final", matches: [ { id: "ga_final", team1: "Team A1", team2: "Team A3", winner: "Team A1" } ] }
             ],
-            finalMatch: { id: "g1_final", team1: "Team A1", team2: "Team A2", winner: "Team A1" }
+            finalMatch: { id: "ga_final", team1: "Team A1", team2: "Team A3", winner: "Team A1" }
         },
         {
-            id: "g2",
-            name: "Grupo 2",
-            colorClass: "bg-pink-500",
+            id: "gb",
+            name: "Grupo B",
+            seeds: ["Team B1", "Team B4", "Team B2", "Team B3"],
             rounds: [
-                {
-                    name: "Semifinales",
-                    matches: [
-                        { id: "g2_r1_m1", team1: "Team B1", team2: "Team B4", winner: "Team B1" },
-                        { id: "g2_r1_m2", team1: "Team B2", team2: "Team B3", winner: "Team B2" }
-                    ]
-                },
-                {
-                    name: "Final Grupo",
-                    matches: [
-                        { id: "g2_final", team1: "Team B1", team2: "Team B2", winner: "Team B1" }
-                    ]
-                }
+                { name: "Qualifiers", matches: [
+                    { id: "gb_q1", team1: "Team B1", team2: "Team B4", winner: "Team B1" },
+                    { id: "gb_q2", team1: "Team B2", team2: "Team B3", winner: "Team B2" }
+                ]},
+                { name: "Group Final", matches: [ { id: "gb_final", team1: "Team B1", team2: "Team B2", winner: "Team B1" } ] }
             ],
-            finalMatch: { id: "g2_final", team1: "Team B1", team2: "Team B2", winner: "Team B1" }
+            finalMatch: { id: "gb_final", team1: "Team B1", team2: "Team B2", winner: "Team B1" }
         },
         {
-            id: "g3",
-            name: "Grupo 3",
-            colorClass: "bg-cyan-500",
+            id: "gc",
+            name: "Grupo C",
+            seeds: ["Team C1", "Team C4", "Team C2", "Team C3"],
             rounds: [
-                {
-                    name: "Semifinales",
-                    matches: [
-                        { id: "g3_r1_m1", team1: "Team C1", team2: "Team C4", winner: "Team C1" },
-                        { id: "g3_r1_m2", team1: "Team C2", team2: "Team C3", winner: "Team C2" }
-                    ]
-                },
-                {
-                    name: "Final Grupo",
-                    matches: [
-                        { id: "g3_final", team1: "Team C1", team2: "Team C2", winner: "Team C1" }
-                    ]
-                }
+                { name: "Qualifiers", matches: [
+                    { id: "gc_q1", team1: "Team C1", team2: "Team C4", winner: "Team C1" },
+                    { id: "gc_q2", team1: "Team C2", team2: "Team C3", winner: "Team C2" }
+                ]},
+                { name: "Group Final", matches: [ { id: "gc_final", team1: "Team C1", team2: "Team C2", winner: "Team C1" } ] }
             ],
-            finalMatch: { id: "g3_final", team1: "Team C1", team2: "Team C2", winner: "Team C1" }
+            finalMatch: { id: "gc_final", team1: "Team C1", team2: "Team C2", winner: "Team C1" }
         }
     ],
-    // Logic: Winner of G1 vs Winner of G2 in Final. Winner of G3 takes 3rd place.
-    grandFinal: { id: "bgf", team1: "Team A1", team2: "Team B1", winner: "Team A1" },
+    semifinalists: ["Team A1", "Team B1", "Team C1"],
+    final: { id: "beg_final", team1: "Team A1", team2: "Team B1", winner: "Team A1" },
     thirdPlaceTeam: "Team C1"
 };
 
@@ -126,7 +97,7 @@ const ADVANCED_DATA: AdvancedBracketData = {
             name: "Quarterfinals",
             matches: [
                 { id: "aq1", team1: "CyberWolves", team2: "RoboTech", team3: "NanoBots", winner: "CyberWolves" },
-                { id: "aq2", team1: "MechWarriors", team2: "IronGiants", team3: "QuantumForce", winner: "IronGiants" },
+                { id: "aq2", team1: "MechWarriors", team2: "IronGiants", team3: "QuantumForce", winner: "MechWarriors" },
                 { id: "aq3", team1: "TechTitans", team2: "CircuitBreakers", team3: "NanoBots", winner: "TechTitans" },
 
             ]
@@ -136,275 +107,247 @@ const ADVANCED_DATA: AdvancedBracketData = {
             matches: [
                 { id: "as1", team1: "CyberWolves", winner: "CyberWolves" },
                 { id: "as2", team1: "TechTitans", winner: "TechTitans" },
-                { id: "as3", team1: "MechWarriors", winner: "MechWarriors" },
+                { id: "as3", team1: "MechWarriors", winner: "MechWarriors" }
             ]
         }
     ],
-    final: { id: "af", team1: "CyberWolves", team2: "TechTitans", winner: "TechTitans" }
+    final: { id: "af", team1: "MechWarriors", team2: "TechTitans", winner: "TechTitans" },
+    thirdPlace: { id: "atp", team1: "CyberWolves", winner: "CyberWolves" }
 };
 
 // --- Components ---
 
-function TeamPill({ name, isWinner, colorClass, small = false }: { name: string; isWinner?: boolean; colorClass: string; small?: boolean }) {
+function TeamPill({ name, isWinner, small = false }: { name: string; isWinner?: boolean; small?: boolean }) {
     return (
         <div className={`
             relative flex items-center justify-center
-            ${small ? "w-28 h-8 text-xs" : "w-40 md:w-48 h-10 md:h-12"}
-            rounded-full border-2 transition-all duration-300
+            ${small ? "w-32 h-10 text-xs" : "w-48 h-14 md:w-56 md:h-16"}
+            rounded-2xl border transition-all duration-300
             ${isWinner
-                ? `${colorClass} border-white/50 shadow-lg scale-105 z-10 text-white font-bold`
-                : "bg-white/10 border-white/20 text-slate-300 hover:bg-white/20"}
+                ? "bg-blue-600 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)] text-white font-bold z-10 scale-105"
+                : "bg-[#1a1a1a] border-[#333] text-slate-400 hover:border-slate-600"}
         `}>
             <span className="truncate px-4">{name}</span>
-            {/* Connector Line Stub (Right side) - Only for standard tree view usually */}
-            {!small && <div className="absolute right-0 top-1/2 w-4 h-[2px] bg-slate-500/50 translate-x-full hidden md:block"></div>}
+            {/* Connector Line Stub (Right side) */}
+            {!small && <div className="absolute right-0 top-1/2 w-4 h-[1px] bg-slate-700 translate-x-full hidden md:block"></div>}
         </div>
     );
 }
 
-function MatchNode({ match, roundIndex, colorClassOverride }: { match: Match; roundIndex: number; colorClassOverride?: string }) {
-    const colors = ["bg-purple-600", "bg-pink-500", "bg-cyan-500", "bg-blue-600"];
-    const colorClass = colorClassOverride ?? (colors[roundIndex % colors.length] ?? "bg-purple-600");
-
+function MatchNode({ match, roundIndex }: { match: Match; roundIndex: number }) {
     return (
-        <div className="flex flex-col gap-2 md:gap-4 relative">
+        <div className="flex flex-col gap-3 md:gap-4 relative">
             {match.team1 && (
-                <TeamPill name={match.team1} isWinner={match.winner === match.team1} colorClass={colorClass} />
+                <TeamPill name={match.team1} isWinner={match.winner === match.team1} />
             )}
-            <div className="absolute right-[-1rem] top-1/2 -translate-y-1/2 w-[2px] h-[calc(100%-2.5rem)] bg-slate-500/50 hidden md:block translate-x-full"></div>
-            <div className="absolute right-[-2rem] top-1/2 w-4 h-[2px] bg-slate-500/50 translate-x-full hidden md:block"></div>
             {match.team2 && (
-                <TeamPill name={match.team2} isWinner={match.winner === match.team2} colorClass={colorClass} />
+                <div className="absolute right-[-1rem] top-1/2 -translate-y-1/2 w-[1px] h-[calc(100%-3.5rem)] bg-slate-700 hidden md:block translate-x-full"></div>
+            )}
+            <div className="absolute right-[-2rem] top-1/2 w-4 h-[1px] bg-slate-700 translate-x-full hidden md:block"></div>
+            {match.team2 && (
+                <TeamPill name={match.team2} isWinner={match.winner === match.team2} />
             )}
             {match.team3 && (
-                <TeamPill name={match.team3} isWinner={match.winner === match.team3} colorClass={colorClass} />
+                <TeamPill name={match.team3} isWinner={match.winner === match.team3} />
             )}
         </div>
     );
 }
 
-function Podium({ winner, runnerUp, thirdPlace }: { winner?: string; runnerUp?: string; thirdPlace?: string }) {
-    return (
-        <div className="flex flex-col items-center gap-8 mt-8 md:mt-0 md:ml-16">
-            <div className="flex items-end gap-4">
-                {/* 2nd Place */}
-                <div className="flex flex-col items-center gap-2">
-                    <span className="text-slate-400 text-sm font-bold">2do Lugar</span>
-                    <div className="w-32 h-12 rounded-full bg-slate-600 flex items-center justify-center text-white font-bold shadow-lg">
-                        {runnerUp || "TBD"}
-                    </div>
-                    <div className="w-2 h-16 bg-slate-600/50"></div>
-                </div>
-
-                {/* 1st Place */}
-                <div className="flex flex-col items-center gap-2 mb-12">
-                    <span className="text-yellow-400 text-sm font-bold">1er Lugar</span>
-                    <div className="w-40 h-16 rounded-full bg-yellow-400 flex items-center justify-center text-black font-bold shadow-[0_0_20px_rgba(250,204,21,0.5)] scale-110 z-10">
-                        {winner || "TBD"}
-                    </div>
-                    <div className="w-2 h-24 bg-yellow-400/50"></div>
-                </div>
-
-                {/* 3rd Place */}
-                <div className="flex flex-col items-center gap-2">
-                    <span className="text-slate-400 text-sm font-bold">3er Lugar</span>
-                    <div className="w-32 h-12 rounded-full bg-slate-600 flex items-center justify-center text-white font-bold shadow-lg">
-                        {thirdPlace || "TBD"}
-                    </div>
-                    <div className="w-2 h-8 bg-slate-600/50"></div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// --- Beginners Specific Components ---
+// --- Beginners Components ---
 
 function GroupBracket({ group }: { group: Group }) {
-    return (
-        <div className="flex items-center gap-8">
-            {/* Render rounds for this group */}
-            {group.rounds.map((round, rIdx) => (
-                <div key={rIdx} className="flex flex-col justify-around gap-8">
-                    {round.matches.map((match) => (
-                        <div key={match.id} className="flex flex-col gap-2 relative">
-                            {/* Custom Mini Match Node */}
-                            <TeamPill
-                                name={match.team1 || "TBD"}
-                                isWinner={match.winner === match.team1}
-                                colorClass={group.colorClass}
-                                small
-                            />
-                            {/* Connectors */}
-                            <div className="absolute right-[-0.5rem] top-1/2 -translate-y-1/2 w-[1px] h-[calc(100%-1rem)] bg-slate-500/50 hidden md:block translate-x-full"></div>
-                            <div className="absolute right-[-1rem] top-1/2 w-2 h-[1px] bg-slate-500/50 translate-x-full hidden md:block"></div>
+    const qualifiers = group.rounds.find(r => r.name === "Qualifiers");
+    const groupFinal = group.finalMatch;
 
-                            <TeamPill
-                                name={match.team2 || "TBD"}
-                                isWinner={match.winner === match.team2}
-                                colorClass={group.colorClass}
-                                small
-                            />
-                        </div>
-                    ))}
-                </div>
-            ))}
+    return (
+        <div className="relative flex items-center gap-12">
+            
+            {/* Seeds vertical */}
+            <div className="flex flex-col gap-3 md:gap-4">
+                {group.seeds?.map(seed => (
+                    <TeamPill key={seed} name={seed} />
+                ))}
+            </div>
+            
+            {/* Two qualifiers vertical */}
+            <div className="flex flex-col gap-8 relative">
+                {qualifiers?.matches?.slice(0, 2)?.map((m, idx) => (
+                    <div key={m.id} className="relative">
+                        <TeamPill name={m.winner ?? 'TBD'} />
+                        <div className="absolute left-full top-1/2 w-8 h-[1px] bg-slate-700 hidden md:block"></div>
+                        {idx === 0 && (
+                            <div className="absolute left-[calc(100%+2rem)] top-1/2 w-[1px] h-[6rem] bg-slate-700 hidden md:block"></div>
+                        )}
+                    </div>
+                ))}
+            </div>
+            
+            {/* Group winner */}
+            <div className="relative">
+                <TeamPill name={groupFinal.winner ?? 'TBD'} isWinner />
+                <div className="absolute left-full top-1/2 w-12 h-[1px] bg-blue-600 shadow-[0_0_6px_rgba(59,130,246,0.6)] hidden md:block"></div>
+            </div>
         </div>
     );
 }
+
+// --- Beginners Layout ---
 
 function BeginnersLayout({ data }: { data: BeginnersBracketData }) {
+    const runnerUp = data.final.winner === data.final.team1 ? data.final.team2 : data.final.team1;
+
     return (
-        <div className="flex flex-col md:flex-row items-center justify-center w-full gap-12 md:gap-24">
-            {/* Left Side: 3 Group Brackets Stacked Vertically */}
-            <div className="flex flex-col gap-16">
-                {data.groups.map((group) => (
-                    <div key={group.id} className="flex flex-col gap-2">
-                        {/* <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">{group.name}</h3> */}
-                        <GroupBracket group={group} />
+        <div className="flex flex-col items-center w-full gap-20 pb-12 px-4">
+            <div className="w-full max-w-7xl flex flex-col md:flex-row md:items-start md:justify-center gap-20">
+                {/* Left: Groups stacked vertically */}
+                <div className="flex flex-col gap-14">
+                    {data.groups.map(g => (
+                        <GroupBracket key={g.id} group={g} />
+                    ))}
+                </div>
+                
+
+                
+                {/* Right: Final and Winners */}
+                <div className="relative flex flex-col items-center gap-12 pt-4">
+                    {/* Final card with winner to the right */}
+                    <div className="relative flex items-center gap-8">
+                        <div className="flex flex-col items-center gap-2">
+                            <h3 className="text-xs uppercase tracking-widest font-bold text-blue-400">Final</h3>
+                            <div className="flex flex-col items-center gap-1">
+                                <TeamPill name={data.final.team1 ?? 'TBD'} isWinner={data.final.winner === data.final.team1} />
+                                <span className="text-[10px] text-slate-500 font-bold">VS</span>
+                                <TeamPill name={data.final.team2 ?? 'TBD'} isWinner={data.final.winner === data.final.team2} />
+                            </div>
+                        </div>
+                        {/* Winner to the right */}
+                        {data.final.winner && (
+                            <div className="relative flex items-center gap-4">
+                                <div className="absolute right-full top-1/2 -translate-y-1/2 w-8 h-[1px] bg-blue-600 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
+                                <div className="flex flex-col items-center gap-2">
+                                    <span className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Campeón</span>
+                                    <TeamPill name={data.final.winner} isWinner />
+                                </div>
+                            </div>
+                        )}
                     </div>
-                ))}
-            </div>
-
-            {/* Connector Line Logic (Visual approximation) */}
-            {/* We need a big bracket connecting the top 2 groups to the final */}
-
-            {/* Right Side: Grand Final & Podium */}
-            <div className="flex flex-col items-center gap-12">
-                <div className="flex flex-col items-center gap-4">
-                    <h2 className="text-2xl font-bold text-yellow-400 uppercase tracking-widest">Gran Final</h2>
-                    <div className="flex flex-col gap-2 relative p-8 bg-white/5 rounded-2xl border border-yellow-500/30 shadow-[0_0_30px_rgba(234,179,8,0.1)]">
-                        <TeamPill
-                            name={data.grandFinal.team1 || "TBD"}
-                            isWinner={data.grandFinal.winner === data.grandFinal.team1}
-                            colorClass="bg-yellow-500"
-                        />
-                        <div className="my-2 text-center text-sm font-bold text-slate-500">VS</div>
-                        <TeamPill
-                            name={data.grandFinal.team2 || "TBD"}
-                            isWinner={data.grandFinal.winner === data.grandFinal.team2}
-                            colorClass="bg-yellow-500"
-                        />
+                    {/* Third place directly below */}
+                    <div className="flex flex-col items-center gap-2">
+                        <h3 className="text-[10px] uppercase tracking-widest font-bold text-slate-500">3er Lugar</h3>
+                        <TeamPill name={data.thirdPlaceTeam ?? 'TBD'} />
                     </div>
                 </div>
-
-                <Podium
-                    winner={data.grandFinal.winner}
-                    runnerUp={data.grandFinal.team1 === data.grandFinal.winner ? data.grandFinal.team2 : data.grandFinal.team1}
-                    thirdPlace={data.thirdPlaceTeam}
-                />
             </div>
         </div>
     );
 }
-
 function AdvancedLayout({ data }: { data: AdvancedBracketData }) {
-    const quarterfinals = data.rounds[0];
-    const semifinals = data.rounds[1];
+const quarterfinals = data.rounds[0];
+const semifinals = data.rounds[1];
 
-    if (!quarterfinals || !semifinals) return null;
+if (!quarterfinals || !semifinals) return null;
 
-    return (
-        <div className="flex flex-col md:flex-row items-center justify-center w-full gap-12 md:gap-24 overflow-x-auto pb-12 px-4">
-            {/* Column 1: Quarterfinals */}
-            <div className="flex flex-col gap-8 justify-center">
-                {quarterfinals.matches.map((match) => (
-                    <div key={match.id} className="relative">
-                        <MatchNode match={match} roundIndex={0} />
-                        {/* Connector to next round */}
-                        <div className="absolute right-[-2rem] top-1/2 w-8 h-[2px] bg-slate-500/50 hidden md:block translate-x-full"></div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Column 2: Semifinals */}
-            <div className="flex flex-col gap-24 justify-center relative">
-                {/* Top 2 Semifinalists (Advance to Final) */}
-                <div className="flex flex-col gap-32">
-                    {semifinals.matches.slice(0, 2).map((match, idx) => (
-                        <div key={match.id} className="relative">
-                            <MatchNode match={match} roundIndex={1} />
-                            {/* Connector to Final */}
-                            <div className="absolute right-[-2rem] top-1/2 w-8 h-[2px] bg-slate-500/50 hidden md:block translate-x-full"></div>
-                            {/* Vertical Connector Part */}
-                            <div className={`absolute right-[-4rem] w-[2px] bg-slate-500/50 hidden md:block translate-x-full ${idx === 0 ? "top-1/2 h-[calc(50%+4rem)]" : "bottom-1/2 h-[calc(50%+4rem)] top-auto"
-                                }`}></div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* 3rd Semifinalist (3rd Place) - Visually separated */}
-                {semifinals.matches[2] && (
-                    <div className="relative mt-8">
-                        <div className="absolute left-[-2rem] top-1/2 w-8 h-[2px] bg-slate-500/50 hidden md:block -translate-x-full"></div>
-                        <MatchNode match={semifinals.matches[2]} roundIndex={1} colorClassOverride="bg-slate-600" />
-                        <div className="absolute -bottom-8 left-0 w-full text-center text-slate-400 text-sm font-bold">3er Lugar</div>
-                    </div>
-                )}
-            </div>
-
-            {/* Column 3: Final & Winner */}
-            <div className="flex flex-col gap-16 justify-center items-center relative -mt-32">
-                {/* Final Match Node */}
-                <div className="flex items-center gap-8">
-                    <div className="flex flex-col gap-2 relative">
-                        {/* Connector from vertical line */}
-                        <div className="absolute left-[-2rem] top-1/2 w-8 h-[2px] bg-slate-500/50 hidden md:block -translate-x-full"></div>
-
-                        <TeamPill
-                            name={data.final.team1 || "TBD"}
-                            isWinner={data.final.winner === data.final.team1}
-                            colorClass="bg-indigo-500"
-                        />
-                        <div className="my-1 text-center text-xs text-slate-500">VS</div>
-                        <TeamPill
-                            name={data.final.team2 || "TBD"}
-                            isWinner={data.final.winner === data.final.team2}
-                            colorClass="bg-indigo-500"
-                        />
-                    </div>
-
-                    {/* Winner Node */}
-                    <div className="relative">
-                        <div className="absolute left-[-2rem] top-1/2 w-8 h-[2px] bg-slate-500/50 hidden md:block -translate-x-full"></div>
+return (
+<div className="flex flex-col items-center w-full gap-20 pb-12 px-4">
+<div className="w-full max-w-7xl flex flex-col md:flex-row md:items-start md:justify-center gap-20">
+{/* Grid of Quarter -> Semifinal rows */}
+<div className="flex flex-col gap-14">
+{quarterfinals.matches.slice(0,3).map((qMatch, idx) => {
+const semiMatch = semifinals.matches[idx];
+const semiWinner = semiMatch?.winner ?? semiMatch?.team1 ?? undefined;
+return (
+<div key={qMatch.id} className="relative flex items-center gap-16">
+{/* Quarter block */}
+<div className="relative">
+<MatchNode match={qMatch} roundIndex={0} />
+<div className="absolute right-[-2rem] top-1/2 w-12 h-[1px] bg-slate-700 hidden md:block"></div>
+</div>
+{/* Semifinal single team */}
+<div className="relative">
+<TeamPill name={semiWinner ?? 'TBD'} />
+{/* Connector forward if advances */}
+<div className="absolute right-[-2rem] top-1/2 h-[1px] hidden md:block"></div>
+</div>
+</div>
+);
+})}
+</div>
 
 
+{/* Final & Third Place column */}
+<div className="relative flex flex-col items-center gap-12 pt-4">
+{/* Final card with winner to the right */}
+<div className="relative flex items-center gap-8">
+<div className="flex flex-col items-center gap-2">
+<h3 className="text-xs uppercase tracking-widest font-bold text-blue-400">Final</h3>
+<div className="flex flex-col items-center gap-1">
+<TeamPill name={data.final.team1 ?? 'TBD'} isWinner={data.final.winner === data.final.team1} />
+<span className="text-[10px] text-slate-500 font-bold">VS</span>
+<TeamPill name={data.final.team2 ?? 'TBD'} isWinner={data.final.winner === data.final.team2} />
+</div>
+</div>
+{/* Winner to the right */}
+{data.final.winner && (
+<div className="relative flex items-center gap-4">
+<div className="absolute right-full top-1/2 -translate-y-1/2 w-8 h-[1px] bg-blue-600 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
+<div className="flex flex-col items-center gap-2">
+<span className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Campeón</span>
+<TeamPill name={data.final.winner} isWinner />
+</div>
+</div>
+)}
+</div>
+{/* Third place directly below - no box */}
+{data.thirdPlace && (
+<div className="flex flex-col items-center gap-2">
+<h3 className="text-[10px] uppercase tracking-widest font-bold text-slate-500">3er Lugar</h3>
+<TeamPill name={data.thirdPlace.winner ?? data.thirdPlace.team1 ?? 'TBD'} isWinner={!!data.thirdPlace.winner} />
+</div>
+)}
+</div>
+</div>
+</div>
+);
+}
 
-                        export default function BracketsPage() {
-    const [category, setCategory] = useState("beginners");
 
-                        return (
-                        <div className="min-h-screen text-white p-4 md:p-8 flex flex-col items-center overflow-hidden">
+export default function BracketsPage() {
+const [category, setCategory] = useState("beginners");
 
-                            {/* Header */}
-                            <div className="flex flex-col items-center mb-12 gap-6 z-10">
-                                <h1 className="text-3xl md:text-5xl font-bold text-center">
-                                    RoboChamp <span className="text-blue-500 capitalize">{category}</span>
-                                </h1>
 
-                                {/* Toggle */}
-                                <div className="flex bg-slate-800/50 p-1 rounded-full border border-slate-700 backdrop-blur-sm">
-                                    {(["beginners", "advanced"] as Category[]).map((cat) => (
-                                        <button
-                                            key={cat}
-                                            onClick={() => setCategory(cat)}
-                                            className={`
-                                px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 capitalize
-                                ${category === cat ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}
-                            `}
-                                        >
-                                            {cat}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+return (
+<div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8 pt-24 md:pt-32 flex flex-col items-center overflow-auto">
+{/* Header */}
+<div className="flex flex-col items-center mb-16 gap-8 z-10 w-full max-w-4xl">
+<h1 className="text-4xl md:text-6xl font-black text-center tracking-tight">
+ROBO<span className="text-blue-600">CHAMP</span>
+<span className="block text-xl md:text-2xl font-medium text-slate-500 mt-2 uppercase tracking-widest">{category}</span>
+</h1>
 
-                            {/* Main Content Area */}
-                            {category === "beginners" ? (
-                                <BeginnersLayout data={BEGINNERS_DATA} />
-                            ) : (
-                                <AdvancedLayout data={ADVANCED_DATA} />
-                            )}
-                        </div>
-                        );
+
+{/* Toggle */}
+<div className="flex bg-[#1a1a1a] p-1.5 rounded-full border border-white/10">
+{(["beginners", "advanced"] as Category[]).map((cat) => (
+<button
+key={cat}
+onClick={() => setCategory(cat)}
+className={`
+px-8 py-3 rounded-full text-sm font-bold transition-all duration-300 uppercase tracking-wider
+${category === cat ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" : "text-slate-500 hover:text-white hover:bg-white/5"}
+`}
+>
+{cat}
+</button>
+))}
+</div>
+</div>
+            {/* Main Content Area */}
+            {category === "beginners" ? (
+                <BeginnersLayout data={BEGINNERS_DATA} />
+            ) : (
+                <AdvancedLayout data={ADVANCED_DATA} />
+            )}
+        </div>
+    );
 }
