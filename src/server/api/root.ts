@@ -3,6 +3,7 @@ import { rolesRouter } from "rbrgs/server/api/routers/roles";
 import { teamRouter } from "rbrgs/server/api/routers/team";
 import { judgeRouter } from "rbrgs/server/api/routers/judge";
 import { scoreboardRouter } from "./routers/scoreboard";
+import { bracketRouter } from "./routers/bracket";
 import { adminRouter } from "./routers/admin";
 import { configRouter } from "./routers/config";
 import { interviewerRouter } from "./routers/interviewer";
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   config: configRouter,
   interviewer: interviewerRouter,
+  bracket: bracketRouter as unknown as typeof scoreboardRouter,
 });
 
 // export type definition of API
