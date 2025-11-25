@@ -19,23 +19,23 @@ export default function JudgePage() {
 
   const session = useSession();
 
-  // if (
-  //   session.data?.user?.role !== Role.ADMIN &&
-  //   session.data?.user?.role !== Role.JUDGE
-  // ) {
-  //   return (
-  //     <main className="mt-[4rem] h-96 bg-black text-sm text-white md:text-base">
-  //       <div className="md:pb-20">
-  //         <Header title="Judge" subtitle="" />
-  //       </div>
-  //       <div className="p-2">
-  //         <h1 className="mb-5 text-center text-4xl">
-  //           You don&apos;t have permission to access this page.
-  //         </h1>
-  //       </div>
-  //     </main>
-  //   );
-  // }
+  if (
+    session.data?.user?.role !== Role.ADMIN &&
+    session.data?.user?.role !== Role.JUDGE
+  ) {
+    return (
+      <main className="mt-[4rem] h-96 bg-black text-sm text-white md:text-base">
+        <div className="md:pb-20">
+          <Header title="Judge" subtitle="" />
+        </div>
+        <div className="p-2">
+          <h1 className="mb-5 text-center text-4xl">
+            You don&apos;t have permission to access this page.
+          </h1>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="mt-[4rem] h-96 bg-black text-sm text-white md:text-base">
