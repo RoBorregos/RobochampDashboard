@@ -7,16 +7,14 @@ export const roundControlRouter = createTRPCRouter({
     try {
       let config = await ctx.db.config.findFirst();
 
-      if (!config) {
-        config = await ctx.db.config.create({
-          data: {
-            freeze: true,
-            competitionStarted: false,
-            currentRound: 1,
-            roundsRevealed: 0,
-          },
-        });
-      }
+      config ??= await ctx.db.config.create({
+        data: {
+          freeze: true,
+          competitionStarted: false,
+          currentRound: 1,
+          roundsRevealed: 0,
+        },
+      });
 
       return config;
     } catch {
@@ -67,16 +65,14 @@ export const roundControlRouter = createTRPCRouter({
         let config;
         try {
           config = await ctx.db.config.findFirst();
-          if (!config) {
-            config = await ctx.db.config.create({
-              data: {
-                freeze: true,
-                competitionStarted: false,
-                currentRound: 1,
-                roundsRevealed: 0,
-              },
-            });
-          }
+          config ??= await ctx.db.config.create({
+            data: {
+              freeze: true,
+              competitionStarted: false,
+              currentRound: 1,
+              roundsRevealed: 0,
+            },
+          });
 
           const visibleRoundsCount = await ctx.db.round
             .findMany({
@@ -180,16 +176,14 @@ export const roundControlRouter = createTRPCRouter({
 
       // Update config
       let config = await ctx.db.config.findFirst();
-      if (!config) {
-        config = await ctx.db.config.create({
-          data: {
-            freeze: true,
-            competitionStarted: false,
-            currentRound: 1,
-            roundsRevealed: 0,
-          },
-        });
-      }
+      config ??= await ctx.db.config.create({
+        data: {
+          freeze: true,
+          competitionStarted: false,
+          currentRound: 1,
+          roundsRevealed: 0,
+        },
+      });
 
       const totalVisible = revealedNumbers.length + 1;
       await ctx.db.config.update({

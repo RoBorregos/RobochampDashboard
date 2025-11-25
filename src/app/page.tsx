@@ -11,8 +11,6 @@ import kube from "../../public/images/sponsors/kube.jpg";
 import digikey from "../../public/images/sponsors/DigiKey.png";
 import kiko from "../../public/images/sponsors/kiko.jpg";
 import heppy from "../../public/images/sponsors/heppy.png";
-import ball from "../../public/images/ball.jpg";
-import maze from "../../public/images/maze.jpg";
 import line from "../../public/images/line.jpg";
 import Footer from "./_components/footer";
 import EventTimeline from "./_components/timeline";
@@ -38,7 +36,7 @@ export default async function Home() {
         <section className="relative flex min-h-[150vw] flex-col items-center justify-start overflow-hidden lg:min-h-screen lg:justify-center">
           <div className="z-10 mt-[30vw] text-center lg:mt-0">
             <h1 className="font-jersey_25 text-[17vw] leading-none text-roboblue lg:text-[12vw]">
-              CANDIDATES
+              ROBOCHAMP
             </h1>
             <p className="mt-[-2vw] font-anton text-[6vw] text-white lg:text-[3vw]">
               By RoBorregos
@@ -68,24 +66,7 @@ export default async function Home() {
         </div>
 
         <section className="mx-[5vw] mt-[5rem] grid gap-[5rem] text-[1.25rem] lg:mx-[5rem] lg:mt-[10rem] lg:grid-cols-3">
-          <div className="relative rounded-xl bg-gradient-to-tr from-neutral-950 to-neutral-800">
-            <div className="group relative">
-              <Image
-                src={maze}
-                alt=""
-                className={`h-[15rem] w-full rounded-xl object-cover blur-[0.1rem] transition duration-300 ease-in-out group-hover:blur-none lg:ml-5 lg:mt-5`}
-              />
-              <div className="absolute top-0 h-[15rem] w-full content-center bg-gradient-to-t from-black to-roboblue bg-clip-text text-center font-anton text-[5rem] text-transparent transition duration-300 group-hover:opacity-0 lg:left-5">
-                MAZE
-              </div>
-            </div>
-            <p className="m-[1rem] text-justify font-archivo text-white">
-              Navigate a grid of tiles, detect ground colors, and score as you
-              explore the maze. Find the exit to complete the route and win
-              bonus points you must return from where you came from.
-            </p>
-          </div>
-
+          <div></div>
           <div className="rounded-xl bg-gradient-to-tr from-neutral-950 to-neutral-800">
             <div className="group relative">
               <Image
@@ -94,30 +75,13 @@ export default async function Home() {
                 className={`h-[15rem] w-full rounded-xl object-cover blur-[0.1rem] transition duration-300 ease-in-out group-hover:blur-none lg:ml-5 lg:mt-5`}
               />
               <div className="absolute top-0 h-[15rem] w-full content-center bg-gradient-to-t from-black to-roboblue bg-clip-text text-center font-anton text-[5rem] text-transparent transition duration-300 group-hover:opacity-0 lg:left-5">
-                LINE
+                DEACTIVATE THE BOMB
               </div>
             </div>
             <p className="m-[1rem] text-justify font-archivo text-white">
-              The classic line follower returns with a twist. Teams pick their
-              difficulty by choosing track modules and taking the riskier path
-              to the end if they&apos; re looking to win!
-            </p>
-          </div>
-          <div className="rounded-xl bg-gradient-to-tr from-neutral-950 to-neutral-800">
-            <div className="group relative">
-              <Image
-                src={ball}
-                alt=""
-                className={`h-[15rem] w-full rounded-xl object-cover blur-[0.1rem] transition duration-300 ease-in-out group-hover:blur-none lg:ml-5 lg:mt-5`}
-              />
-              <div className="absolute top-0 h-[15rem] w-full content-center bg-gradient-to-t from-black to-roboblue bg-clip-text text-center font-anton text-[5rem] text-transparent transition duration-300 group-hover:opacity-0 lg:left-5">
-                BALL
-              </div>
-            </div>
-            <p className="m-[1rem] text-justify font-archivo text-white">
-              Detect flags on the field and follow their instructions to locate
-              and interact with the ball. Precision, timing, and control are key
-              to maximize your score.
+              In this challenge, teams will have to demonstrate their precision
+              and control as they navigate a complex maze to reach and
+              successfully deactivate a simulated bomb within a set time limit.
             </p>
           </div>
         </section>

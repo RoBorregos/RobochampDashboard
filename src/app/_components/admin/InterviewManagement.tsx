@@ -650,8 +650,8 @@ export default function InterviewManagement({
         )}
 
         {conflicts.length === 0 &&
-          interviewSchedule &&
-          interviewSchedule.filter((u) => u.interviewTime).length > 0 && (
+          (interviewSchedule?.filter((u) => u.interviewTime) ?? []).length >
+            0 && (
             <div className="rounded border border-green-500/30 bg-green-900/20 p-4 text-center">
               <div className="text-green-400">
                 <h4 className="mt-2 font-semibold">
@@ -664,15 +664,15 @@ export default function InterviewManagement({
             </div>
           )}
 
-        {interviewSchedule &&
-          interviewSchedule.filter((u) => u.interviewTime).length === 0 && (
-            <div className="rounded bg-gray-700 p-4 text-center">
-              <span className="text-gray-400">
-                No interviews scheduled yet. Use &quot;Auto Schedule All&quot;
-                to begin.
-              </span>
-            </div>
-          )}
+        {(interviewSchedule?.filter((u) => u.interviewTime) ?? []).length ===
+          0 && (
+          <div className="rounded bg-gray-700 p-4 text-center">
+            <span className="text-gray-400">
+              No interviews scheduled yet. Use &quot;Auto Schedule All&quot; to
+              begin.
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg bg-gray-800 p-6">

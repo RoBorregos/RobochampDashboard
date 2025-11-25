@@ -201,15 +201,13 @@ export const scheduleManagementRouter = createTRPCRouter({
                 where: { teamId: team.id, number: round },
               });
 
-              if (!roundRecord) {
-                roundRecord = await ctx.db.round.create({
-                  data: {
-                    teamId: team.id,
-                    number: round,
-                    isVisible: false, // Will be revealed manually
-                  },
-                });
-              }
+              roundRecord ??= await ctx.db.round.create({
+                data: {
+                  teamId: team.id,
+                  number: round,
+                  isVisible: false, // Will be revealed manually
+                },
+              });
 
               // Create the challenge entry
               await ctx.db.challenge.create({
@@ -326,15 +324,13 @@ export const scheduleManagementRouter = createTRPCRouter({
               where: { teamId: team.id, number: roundNumber },
             });
 
-            if (!roundRecord) {
-              roundRecord = await ctx.db.round.create({
-                data: {
-                  teamId: team.id,
-                  number: roundNumber,
-                  isVisible: false,
-                },
-              });
-            }
+            roundRecord ??= await ctx.db.round.create({
+              data: {
+                teamId: team.id,
+                number: roundNumber,
+                isVisible: false,
+              },
+            });
 
             await ctx.db.challenge.create({
               data: {

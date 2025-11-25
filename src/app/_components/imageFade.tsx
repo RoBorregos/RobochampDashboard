@@ -4,14 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
 export default function ImageFade({ className = "" }) {
-  const slides = [
-    "/images/teamPhotos/cand25.JPG",
-    "/images/teamPhotos/cand25-3rd.JPG",
-    "/images/teamPhotos/cand25-2nd.JPG",
-    "/images/teamPhotos/cand25-1st.JPG",
-  ];
-  for (let i = 1; i <= 18; i++) {
-    slides.push(`/images/teamPhotos/cand25-${i}.JPG`);
+  const slides = [];
+  for (let i = 1; i <= 8; i++) {
+    slides.push(`/images/robochamp/robochamp-${i}.jpg`);
   }
 
   const [currentSlide, setCurrentSlide] = useState(0);
