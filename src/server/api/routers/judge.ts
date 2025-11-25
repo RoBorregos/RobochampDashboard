@@ -7,17 +7,8 @@ import {
   challengeCSchema,
 } from "rbrgs/lib/schemas";
 
-const computePointsLOP = (lackOfProgress: number) => {
-  switch (lackOfProgress) {
-    case 0:
-      return 20;
-    case 1:
-      return 10;
-    case 2:
-      return 5;
-    default:
-      return 0;
-  }
+const computePointsLOP = (_lackOfProgress: number) => {
+  return 0;
 };
 
 export const judgeRouter = createTRPCRouter({
