@@ -20,7 +20,7 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   config: configRouter,
   interviewer: interviewerRouter,
-  bracket: bracketRouter as unknown as typeof scoreboardRouter,
+  bracket: bracketRouter,
 });
 
 // export type definition of API

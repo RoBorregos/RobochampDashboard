@@ -547,19 +547,6 @@ export default function BracketsPage() {
     ]);
   };
 
-  const handleUndo = () => {
-    if (history.length === 0) return;
-    setHistory((h) => {
-      const copy = [...h];
-      const last = copy.pop();
-      if (last) {
-        setBeginnersData(last.beginners);
-        setAdvancedData(last.advanced);
-      }
-      return copy;
-    });
-  };
-
   // Advanced propagation logic
   const recomputeAdvancedStructure = (
     data: AdvancedBracketData,
