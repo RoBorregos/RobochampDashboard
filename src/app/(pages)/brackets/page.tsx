@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
+import Header from "~/app/_components/header";
 
 type Category = "beginners" | "advanced";
 
@@ -808,17 +809,11 @@ export default function BracketsPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center overflow-auto bg-[#0a0a0a] p-4 pt-24 text-white md:p-8 md:pt-32">
-      {/* Header */}
-      <div className="z-10 mb-16 flex w-full max-w-4xl flex-col items-center gap-8">
-        <h1 className="text-center text-4xl font-black tracking-tight md:text-6xl">
-          ROBO<span className="text-blue-600">CHAMP</span>
-          <span className="mt-2 block text-xl font-medium uppercase tracking-widest text-slate-500 md:text-2xl">
-            {category}
-          </span>
-        </h1>
-
+      {/* Unified header style */}
+      <div className="z-10 mb-8 flex w-full max-w-5xl flex-col items-center">
+        <Header title="ROBOCHAMP" subtitle={category.toUpperCase()} />
         {/* Category Toggle */}
-        <div className="flex rounded-full border border-white/10 bg-[#1a1a1a] p-1.5">
+        <div className="-mt-10 flex rounded-full border border-white/10 bg-[#1a1a1a] p-1.5">
           {(["beginners", "advanced"] as Category[]).map((cat) => (
             <button
               key={cat}
