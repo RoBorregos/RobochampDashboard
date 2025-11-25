@@ -1,14 +1,9 @@
 type TeamScores = {
   teamId: string;
   teamName: string;
-  rounds: Record<
-    number,
-    {
-      challengeA: number;
-      challengeB: number;
-      challengeC: number;
-    }
-  >;
+  // rounds will store a single-score object per round: { score: number }
+  rounds: Record<number, { score: number }>;
+  // total is the accumulated sum of all rounds' scores
   total: number;
 };
 
@@ -34,14 +29,17 @@ export const scoreboardRouter = createTRPCRouter({
       },
     });
 
-    // Fetch all challenges
-    const [challengesA, challengesB, challengesC] = await Promise.all([
-      ctx.db.challengeA.findMany(),
-      ctx.db.challengeB.findMany(),
-      ctx.db.challengeC.findMany(),
-    ]);
+    // Fetch only challenge A (we're using a single-challenge system)
+    const challengesA = await ctx.db.challengeA.findMany();
 
-    // Process scores for each team
+    // Group challengesA by team
+    const challengesByTeam: Record<string, typeof challengesA> = {};
+    for (const ch of challengesA) {
+      if (!challengesByTeam[ch.teamId]) challengesByTeam[ch.teamId] = [];
+      challengesByTeam[ch.teamId].push(ch);
+    }
+
+    // Process scores for each team using only challengeA points
     const teamScores: TeamScores[] = teams.map((team) => {
       const scores: TeamScores = {
         teamId: team.id,
@@ -50,95 +48,24 @@ export const scoreboardRouter = createTRPCRouter({
         total: 0,
       };
 
-      // Initialize rounds data using the Round enum
-      Object.values(Round).forEach((roundId) => {
-        if (typeof roundId === "number") {
-          scores.rounds[roundId] = {
-            challengeA: 0,
-            challengeB: 0,
-            challengeC: 0,
-          };
-        }
-      });
+      const teamChallenges = challengesByTeam[team.id] ?? [];
 
-      // Fill in challenge scores
-      challengesA.forEach((challenge) => {
-        if (challenge.teamId === team.id) {
-          const roundId = Number(challenge.roundId);
-          if (!isNaN(roundId) && scores.rounds[roundId]) {
-            if ((roundId as Round) === Round.C && isFrozen) {
-              scores.rounds[roundId].challengeA = 0;
-            } else {
-              scores.rounds[roundId].challengeA = challenge.points;
-            }
-          }
-        }
-      });
-
-      challengesB.forEach((challenge) => {
-        if (challenge.teamId === team.id) {
-          const roundId = Number(challenge.roundId);
-          if (!isNaN(roundId) && scores.rounds[roundId]) {
-            if ((roundId as Round) === Round.C && isFrozen) {
-              scores.rounds[roundId].challengeB = 0;
-            } else {
-              scores.rounds[roundId].challengeB = challenge.points;
-            }
-          }
-        }
-      });
-
-      challengesC.forEach((challenge) => {
-        if (challenge.teamId === team.id) {
-          const roundId = Number(challenge.roundId);
-          if (!isNaN(roundId) && scores.rounds[roundId]) {
-            if ((roundId as Round) === Round.C && isFrozen) {
-              scores.rounds[roundId].challengeC = 0;
-            } else {
-              scores.rounds[roundId].challengeC = challenge.points;
-            }
-          }
-        }
-      });
-
-      // Calculate total
-      //total is best two for each challenge
-
-      const challenge_scores_sorted = {
-        A: [] as number[],
-        B: [] as number[],
-        C: [] as number[],
-      };
-
-      for (const round of Object.values(scores.rounds)) {
-        challenge_scores_sorted.A.push(round.challengeA);
-        challenge_scores_sorted.B.push(round.challengeB);
-        challenge_scores_sorted.C.push(round.challengeC);
+      // Fill rounds from actual challengeA entries (no fixed round list)
+      for (const ch of teamChallenges) {
+        const roundId = Number(ch.roundId);
+        if (isNaN(roundId)) continue;
+        const isRoundC = (roundId as Round) === Round.C;
+        const points = isRoundC && isFrozen ? 0 : ch.points;
+        scores.rounds[roundId] = { score: points };
       }
 
-      challenge_scores_sorted.A.sort((a, b) => b - a);
-      challenge_scores_sorted.B.sort((a, b) => b - a);
-      challenge_scores_sorted.C.sort((a, b) => b - a);
-      // remove the lowest score
-      challenge_scores_sorted.A.pop();
-      challenge_scores_sorted.B.pop();
-      challenge_scores_sorted.C.pop();
-
-      // scores.total = Object.values(scores.rounds).reduce(
-      //   (sum, round) =>
-      //     sum + round.challengeA + round.challengeB + round.challengeC,
-      //   0,
-      // );
-
-      scores.total =
-        challenge_scores_sorted.A.reduce((sum, score) => sum + score, 0) +
-        challenge_scores_sorted.B.reduce((sum, score) => sum + score, 0) +
-        challenge_scores_sorted.C.reduce((sum, score) => sum + score, 0);
+      // Calculate accumulated total as straight sum of all round scores
+      scores.total = Object.values(scores.rounds).reduce((sum, r) => sum + (r.score ?? 0), 0);
 
       return scores;
     });
 
-    // Sort by total score descending
+    // Sort by accumulated total descending
     return teamScores.sort((a, b) => b.total - a.total);
   }),
 });

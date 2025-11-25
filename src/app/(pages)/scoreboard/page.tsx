@@ -3,10 +3,24 @@
 import React from "react";
 import Footer from "../../_components/footer";
 import Header from "../../_components/header";
-import Title from "../../_components/title";
 import { api } from "~/trpc/react";
-import { Round } from "../../../lib/round";
-import RandomText from "../../_components/random-text";
+
+type RoundScores = { score: number };
+type TeamScore = {
+  teamId: string;
+  teamName: string;
+  // rounds keys can come as strings (from JSON) or numbers; the shape is unknown from the API
+  rounds: Record<string, unknown> | Record<number, unknown>;
+  total?: number;
+};
+type ProcessedTeam = {
+  teamId: string;
+  teamName: string;
+  rounds: Record<string, unknown> | Record<number, unknown>;
+  total?: number;
+  lastScore: number;
+  accumulated: number;
+};
 
 const TwitchEmbed = ({ channel }: { channel: string }) => (
   <div className="aspect-video w-full">
@@ -21,13 +35,9 @@ const TwitchEmbed = ({ channel }: { channel: string }) => (
 );
 
 export default function ScoreboardPage() {
-  const {
-    data: scores,
-    isLoading,
-    refetch,
-  } = api.scoreboard.getScoreboard.useQuery();
+  const { data: scores, isLoading, refetch } =
+    api.scoreboard.getScoreboard.useQuery();
 
-  const { data: isFrozen } = api.config.isScoreboardFrozen.useQuery();
   const { data: competitionStarted } =
     api.config.isCompetitionStarted.useQuery();
 
@@ -38,146 +48,102 @@ export default function ScoreboardPage() {
     return () => clearInterval(interval);
   }, [refetch]);
 
+  const processed = React.useMemo<ProcessedTeam[]>(() => {
+    if (!scores) return [];
+
+    // helper type guards
+    const isRecord = (v: unknown): v is Record<string, unknown> =>
+      v !== null && typeof v === "object" && !Array.isArray(v);
+
+    const extractScore = (v: unknown): number => {
+      if (!isRecord(v)) return 0;
+      const maybeScore = v["score"];
+      if (typeof maybeScore === "number") return maybeScore;
+
+      // backward-compat: if API still returns per-challenge fields, sum them
+      const a = typeof v["challengeA"] === "number" ? (v["challengeA"] as number) : 0;
+      const b = typeof v["challengeB"] === "number" ? (v["challengeB"] as number) : 0;
+      const c = typeof v["challengeC"] === "number" ? (v["challengeC"] as number) : 0;
+      return a + b + c;
+    };
+
+    const raw = (scores as unknown[]) as unknown[];
+    const teams: ProcessedTeam[] = raw.map((t) => {
+      // try to safely read expected fields
+      const teamObj = (t as unknown) as Record<string, unknown>;
+      const teamId = typeof teamObj["teamId"] === "string" ? (teamObj["teamId"] as string) : "";
+      const teamName = typeof teamObj["teamName"] === "string" ? (teamObj["teamName"] as string) : "";
+      const roundsRaw = isRecord(teamObj["rounds"]) ? (teamObj["rounds"] as Record<string, unknown>) : {};
+
+      const roundKeys = Object.keys(roundsRaw)
+        .map((k) => Number(k))
+        .filter((n) => !Number.isNaN(n));
+      const lastRound = roundKeys.length ? Math.max(...roundKeys) : null;
+      const lastScore = lastRound !== null ? extractScore(roundsRaw[String(lastRound)]) : 0;
+      const accumulated = roundKeys.reduce((sum: number, r: number) => sum + extractScore(roundsRaw[String(r)]), 0);
+
+      return {
+        teamId,
+        teamName,
+        rounds: roundsRaw,
+        total: typeof teamObj["total"] === "number" ? (teamObj["total"] as number) : undefined,
+        lastScore,
+        accumulated,
+      } as ProcessedTeam;
+    });
+
+    return teams.sort((a, b) => b.accumulated - a.accumulated);
+  }, [scores]);
+
   if (!competitionStarted) {
     return (
       <div className="mt-[4rem] h-96 bg-black text-white">
         <Header title="Scoreboard" />
-        <p className="my-10 text-center text-lg">
-          The competition will start soon!
-        </p>
+        <p className="my-10 text-center text-lg">The competition will start soon!</p>
         <Footer />
       </div>
     );
   }
 
   return (
-    <div className="mt-[4rem] h-96 bg-black text-sm text-white md:text-base">
+    <div className="mt-[4rem] min-h-[24rem] bg-black text-sm text-white md:text-base">
       <Header title="Scoreboard" />
+
       <div className="container mx-auto overflow-x-scroll p-4 scrollbar-thin scrollbar-track-gray-700 scrollbar-thumb-roboblue">
         <div className="grid gap-4 md:grid-cols-2">
-          {/* Stream section */}
           <div className="w-full">
             <TwitchEmbed channel="RoBorregosTeam" />
           </div>
 
-          {/* Leaderboard section */}
           <div className="my-auto w-full overflow-x-auto">
-            <table className="min-w-full border-collapse text-white">
-              <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="p-4 text-left">Rank</th>
-                  <th className="p-4 text-left">Team</th>
-                  <th className="p-4 text-left">Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {scores ? (
-                  scores.slice(0, 5).map((team, index) => (
-                    <tr key={team.teamId} className="border-b border-gray-700">
-                      <td className="p-4">{index + 1}</td>
-                      <td className="p-4">{team.teamName}</td>
-                      <td className="p-4">{team.total}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="p-4 text-center">
-                      {isLoading ? "Loading..." : "No data available"}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <Title title="General" />
-
-      <div className="mx-auto w-full max-w-7xl overflow-x-auto px-4 scrollbar-thin scrollbar-track-gray-700 scrollbar-thumb-roboblue">
-        <table className="w-full table-fixed border-collapse text-white">
-          <colgroup>
-            <col className="w-48" />
-            <col className="w-16" />
-            <col className="w-16" />
-            <col className="w-16" />
-            <col className="w-16" />
-            <col className="w-16" />
-            <col className="w-16" />
-            <col className="w-16" />
-            <col className="w-16" />
-            <col className="w-16" />
-            <col className="w-20" />
-          </colgroup>
+            <table className="w-full table-fixed border-collapse text-white">
           <thead>
             <tr className="border-b border-gray-700">
-              <th className="p-4 text-left" rowSpan={2}>
-                Team
-              </th>
-              <th className="p-4 text-center" colSpan={3}>
-                Round 1
-              </th>
-              <th className="p-4 text-center" colSpan={3}>
-                Round 2
-              </th>
-              <th className="p-4 text-center" colSpan={3}>
-                Round 3
-              </th>
-              <th className="p-4 text-right" rowSpan={2}>
-                Total
-              </th>
-            </tr>
-            <tr className="border-b border-gray-700">
-              <th className="p-3 text-sm font-normal">C1</th>
-              <th className="p-3 text-sm font-normal">C2</th>
-              <th className="p-3 text-sm font-normal">C3</th>
-              <th className="p-3 text-sm font-normal">C1</th>
-              <th className="p-3 text-sm font-normal">C2</th>
-              <th className="p-3 text-sm font-normal">C3</th>
-              <th className="p-3 text-sm font-normal">C1</th>
-              <th className="p-3 text-sm font-normal">C2</th>
-              <th className="p-3 text-sm font-normal">C3</th>
+              <th className="p-4 text-left">Team</th>
+              <th className="p-4 text-right">Last Round Score</th>
+              <th className="p-4 text-right">Accumulated Score</th>
             </tr>
           </thead>
           <tbody>
-            {scores?.map((team) => (
-              <tr
-                key={team.teamId}
-                className="border-b border-gray-700 transition-colors hover:bg-gray-800/30"
-              >
-                <td className="p-4 font-medium">{team.teamName}</td>
-                {Object.values(Round)
-                  .filter((value): value is number => typeof value === "number") // Filter only numeric values
-                  .map((roundId: Round) => (
-                    <React.Fragment key={roundId}>
-                      <td className="p-4 text-center">
-                        {isFrozen && roundId === Round.C ? (
-                          <RandomText />
-                        ) : (
-                          (team.rounds[roundId]?.challengeA ?? "-")
-                        )}
-                      </td>
-                      <td className="p-4 text-center">
-                        {isFrozen && roundId === Round.C ? (
-                          <RandomText />
-                        ) : (
-                          (team.rounds[roundId]?.challengeB ?? "-")
-                        )}
-                      </td>
-                      <td className="p-4 text-center">
-                        {isFrozen && roundId === Round.C ? (
-                          <RandomText />
-                        ) : (
-                          (team.rounds[roundId]?.challengeC ?? "-")
-                        )}
-                      </td>
-                    </React.Fragment>
-                  ))}
-                <td className="p-4 text-center font-semibold">{team.total}</td>
+            {processed.length > 0 ? (
+              processed.map((team, idx) => (
+                <tr key={team.teamId} className="border-b border-gray-700">
+                  <td className="p-4 font-medium">{team.teamName}</td>
+                  <td className="p-4 text-right">{team.lastScore}</td>
+                  <td className="p-4 text-right font-semibold">{team.accumulated}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={3} className="p-4 text-center">
+                  {isLoading ? "Loading..." : "No data available"}
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
+          </div>
+        </div>
       </div>
 
       <Footer />
