@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "rbrgs/server/api/trpc";
+import { Prisma } from "@prisma/client";
 
 export const bracketRouter = createTRPCRouter({
   getBracket: publicProcedure
@@ -8,7 +9,7 @@ export const bracketRouter = createTRPCRouter({
       const category = input.category === "beginners" ? "BEGINNERS" : "ADVANCED";
 
       const record = await ctx.db.bracket.findUnique({
-        where: { category: category as any },
+        where: { category: category },
         select: { data: true },
       });
 
@@ -19,16 +20,18 @@ export const bracketRouter = createTRPCRouter({
     .input(
       z.object({
         category: z.enum(["beginners", "advanced"]),
-        payload: z.any(),
+        payload: z.unknown(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const category = input.category === "beginners" ? "BEGINNERS" : "ADVANCED";
+      const payload =
+        input.payload === null ? Prisma.JsonNull : (input.payload as Prisma.InputJsonValue);
 
       await ctx.db.bracket.upsert({
-        where: { category: category as any },
-        create: { category: category as any, data: input.payload as any },
-        update: { data: input.payload as any },
+        where: { category: category },
+        create: { category: category, data: payload },
+        update: { data: payload },
       });
       return { ok: true };
     }),
