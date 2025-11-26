@@ -38,7 +38,7 @@ All bracket progression is managed through the admin panel with results saved to
 | -------------------------- | ------------------------------------------------------------------- | -------------------------------------- | ---------- |
 | Gilberto Malagamba Montejo | [gilberto.malagamba@gmail.com](mailto:gilberto.malagamba@gmail.com) | [@GilMM27](https://github.com/GilMM27) | Programmer |
 | Fernando Hernandez Cantu | [fernando_hdz_cantu@hotmail.com](mailto:fernando_hdz_cantu@hotmail.com) | [@Fernando94654](https://github.com/Fernando94654) | Programmer |
-| Camila Tite|  [camilatite26@gmail.com]| [@CamilaTite26](https://github.com/CamilaTite26) | Programmer |
+| Camila Tite|  [camilatite26@gmail.com](mailto:camilatite26@gmail.com)| [@CamilaTite26](https://github.com/CamilaTite26) | Programmer |
 
 
 ## License
