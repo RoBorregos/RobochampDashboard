@@ -8,6 +8,7 @@ import {
 } from "rbrgs/lib/schemas";
 
 const computePointsLOP = (_lackOfProgress: number) => {
+  // Placeholder for lack-of-progress penalties. Keep 0 for now.
   return 0;
 };
 
@@ -25,21 +26,26 @@ export const judgeRouter = createTRPCRouter({
 
       let points = 0;
 
+      // Zone A scoring (cubes + seesaw)
       let zoneAPoints = 0;
-      zoneAPoints += red * 10;
-      zoneAPoints += green * 10;
-      zoneAPoints += blue * 10;
-      zoneAPoints += yellow * 35;
-      zoneAPoints += seesaw * 25;
+      zoneAPoints += red * 10; // red cubes: 10 pts each
+      zoneAPoints += green * 10; // green cubes: 10 pts each
+      zoneAPoints += blue * 10; // blue cubes: 10 pts each
+      zoneAPoints += yellow * 35; // yellow cube: 35 pts
+      zoneAPoints += seesaw * 25; // seesaw crossing: 25 pts (max 1)
       if (zoneAPoints > 120) zoneAPoints = 120;
 
+      // Zone B scoring (cables)
       let zoneBPoints = cables * 20;
       if (zoneBPoints > 80) zoneBPoints = 80;
 
       points += zoneAPoints + zoneBPoints;
 
+      // If both zones are maxed (120 + 80 = 200), add remaining seconds from 5 minutes (300s)
+      const roundTime = input.genericFormSchema.roundTimeSeconds ?? 0;
       if (zoneAPoints === 120 && zoneBPoints === 80) {
-        points += input.genericFormSchema.roundTimeSeconds ?? 0;
+        const secondsRemaining = Math.max(0, 300 - roundTime);
+        points += secondsRemaining;
       }
 
       points += computePointsLOP(input.genericFormSchema.lackOfProgress);
@@ -51,7 +57,8 @@ export const judgeRouter = createTRPCRouter({
           obtainedBonus: input.genericFormSchema.obtainedBonus,
           roundTimeSeconds: input.genericFormSchema.roundTimeSeconds,
           lackOfProgress: input.genericFormSchema.lackOfProgress,
-          roundId: input.genericFormSchema.roundId,
+          // roundId is optional in the form; store an empty string if not provided.
+          roundId: input.genericFormSchema.roundId ?? "",
           teamId: input.genericFormSchema.teamId,
           judgeID: ctx.session.user.id,
           points: points,
@@ -82,7 +89,7 @@ export const judgeRouter = createTRPCRouter({
           roundTimeSeconds: input.genericFormSchema.roundTimeSeconds,
           teamId: input.genericFormSchema.teamId,
           judgeID: ctx.session.user.id,
-          roundId: input.genericFormSchema.roundId,
+          roundId: input.genericFormSchema.roundId ?? "",
         },
       });
     }),
@@ -119,7 +126,7 @@ export const judgeRouter = createTRPCRouter({
           roundTimeSeconds: input.genericFormSchema.roundTimeSeconds,
           teamId: input.genericFormSchema.teamId,
           judgeID: ctx.session.user.id,
-          roundId: input.genericFormSchema.roundId,
+          roundId: input.genericFormSchema.roundId ?? "",
         },
       });
     }),

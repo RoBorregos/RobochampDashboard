@@ -9,13 +9,16 @@ export const genericDataSchema = z.object({
     .number()
     .int()
     .min(0, { message: "roundTimeSeconds must be greater than or equal to 0" })
-    .max(600, {
-      message: "roundTimeSeconds must be less than or equal to 600",
+    // Competition rounds are 5 minutes (300 seconds)
+    .max(300, {
+      message: "roundTimeSeconds must be less than or equal to 300",
     }),
   lackOfProgress: z.coerce.number().int().min(-1, {
     message: "lackOfProgress must be greater than or equal to -1",
   }),
-  roundId: z.enum(["1", "2", "3"]),
+  // roundId is optional — the system does not rely on fixed rounds by default.
+  // It can be provided later if needed (string), or omitted.
+  roundId: z.string().optional(),
   teamId: z.string().min(1),
 });
 
@@ -26,27 +29,30 @@ export const challengeASchema = z.object({
     .number()
     .int()
     .min(0, { message: "redCubes must be >= 0" })
-    .max(4, { message: "redCubes must be <= 4" }),
+    // Only 2 red cubes are used in the system
+    .max(2, { message: "redCubes must be <= 2" }),
   greenCubes: z.coerce
     .number()
     .int()
     .min(0, { message: "greenCubes must be >= 0" })
-    .max(4, { message: "greenCubes must be <= 4" }),
+    .max(2, { message: "greenCubes must be <= 2" }),
   blueCubes: z.coerce
     .number()
     .int()
     .min(0, { message: "blueCubes must be >= 0" })
-    .max(4, { message: "blueCubes must be <= 4" }),
+    .max(2, { message: "blueCubes must be <= 2" }),
   yellowCubes: z.coerce
     .number()
     .int()
     .min(0, { message: "yellowCubes must be >= 0" })
-    .max(4, { message: "yellowCubes must be <= 4" }),
+    // Only one yellow cube in the game
+    .max(1, { message: "yellowCubes must be <= 1" }),
   seesawCrossings: z.coerce
     .number()
     .int()
     .min(0, { message: "seesawCrossings must be >= 0" })
-    .max(20, { message: "seesawCrossings must be a small integer" }),
+    // Seesaw can be crossed at most once per the new rules
+    .max(1, { message: "seesawCrossings must be 0 or 1" }),
 
   cablesCut: z.coerce
     .number()

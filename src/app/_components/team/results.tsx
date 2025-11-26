@@ -67,7 +67,6 @@ const RoundResults = ({
             ?.filter((challenge) => challenge.roundId === selection)
             .map((challenge, key) => (
               <div key={key} className="px-5">
-                Flags accomplished: {challenge.flagsAccomplished}
                 <br />
                 Finished track: {challenge.finishedTrack ? "Yes" : "No"}
                 <br />

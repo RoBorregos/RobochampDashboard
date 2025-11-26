@@ -267,7 +267,7 @@ export const FormChallengeC = () => {
               <FormControl>
                 <RadioGroup
                   onValueChange={field.onChange}
-                  defaultValue={field.value.toString()}
+                  defaultValue={String(field.value ?? "")}
                   className="flex flex-col"
                 >
                   {[1, 2, 3].map((value) => (
