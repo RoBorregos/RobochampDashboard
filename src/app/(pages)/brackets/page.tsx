@@ -1,10 +1,11 @@
 "use client";
 
+import { BracketCategory } from "@prisma/client";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import Header from "~/app/_components/header";
 
-type Category = "beginners" | "advanced";
+type Category = BracketCategory;
 
 interface Match {
   id: string;
@@ -130,11 +131,10 @@ function TeamPill({
       type="button"
       disabled={!clickable}
       onClick={clickable ? onClick : undefined}
-      className={`relative flex select-none items-center justify-center ${small ? "h-10 w-32 text-xs" : "h-14 w-48 md:h-16 md:w-56"} rounded-2xl border transition-all duration-300 ${
-        isWinner
-          ? "z-10 scale-105 border-blue-400 bg-blue-600 font-bold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]"
-          : "border-[#333] bg-[#1a1a1a] text-slate-400"
-      } ${clickable && !isWinner ? "cursor-pointer hover:border-blue-400 hover:shadow-[0_0_8px_rgba(59,130,246,0.4)]" : ""} ${!clickable ? "opacity-60" : ""} `}
+      className={`relative flex select-none items-center justify-center ${small ? "h-10 w-32 text-xs" : "h-14 w-48 md:h-16 md:w-56"} rounded-2xl border transition-all duration-300 ${isWinner
+        ? "z-10 scale-105 border-blue-400 bg-blue-600 font-bold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+        : "border-[#333] bg-[#1a1a1a] text-slate-400"
+        } ${clickable && !isWinner ? "cursor-pointer hover:border-blue-400 hover:shadow-[0_0_8px_rgba(59,130,246,0.4)]" : ""} ${!clickable ? "opacity-60" : ""} `}
     >
       <span className="truncate px-4">{name}</span>
     </button>
@@ -220,8 +220,8 @@ function GroupBracket({
           onClick={
             isAdmin && group.finalMatch.team1
               ? () =>
-                  onSelectGroupFinalWinner &&
-                  onSelectGroupFinalWinner(group.id, group.finalMatch.team1!)
+                onSelectGroupFinalWinner &&
+                onSelectGroupFinalWinner(group.id, group.finalMatch.team1!)
               : undefined
           }
         />
@@ -234,8 +234,8 @@ function GroupBracket({
           onClick={
             isAdmin && group.finalMatch.team2
               ? () =>
-                  onSelectGroupFinalWinner &&
-                  onSelectGroupFinalWinner(group.id, group.finalMatch.team2!)
+                onSelectGroupFinalWinner &&
+                onSelectGroupFinalWinner(group.id, group.finalMatch.team2!)
               : undefined
           }
         />
@@ -290,8 +290,8 @@ function BeginnersLayout({
                   onClick={
                     isAdmin && data.final.team1
                       ? () =>
-                          onSetFinalWinner &&
-                          onSetFinalWinner(data.final.team1!)
+                        onSetFinalWinner &&
+                        onSetFinalWinner(data.final.team1!)
                       : undefined
                   }
                 />
@@ -302,8 +302,8 @@ function BeginnersLayout({
                   onClick={
                     isAdmin && data.final.team2
                       ? () =>
-                          onSetFinalWinner &&
-                          onSetFinalWinner(data.final.team2!)
+                        onSetFinalWinner &&
+                        onSetFinalWinner(data.final.team2!)
                       : undefined
                   }
                 />
@@ -386,8 +386,8 @@ function AdvancedLayout({
                   onSelectTeam={
                     isAdmin
                       ? (team) =>
-                          onSelectQuarterWinner &&
-                          onSelectQuarterWinner(qMatch.id, team)
+                        onSelectQuarterWinner &&
+                        onSelectQuarterWinner(qMatch.id, team)
                       : undefined
                   }
                 />
@@ -401,11 +401,11 @@ function AdvancedLayout({
                   onClick={
                     isAdmin && semiMatch?.team1
                       ? () =>
-                          onSelectSemifinalWinner &&
-                          onSelectSemifinalWinner(
-                            semiMatch.id,
-                            semiMatch.team1!,
-                          )
+                        onSelectSemifinalWinner &&
+                        onSelectSemifinalWinner(
+                          semiMatch.id,
+                          semiMatch.team1!,
+                        )
                       : undefined
                   }
                 />
@@ -431,8 +431,8 @@ function AdvancedLayout({
                 onClick={
                   isAdmin && data.final.team1
                     ? () =>
-                        onSelectFinalWinner &&
-                        onSelectFinalWinner(data.final.team1!)
+                      onSelectFinalWinner &&
+                      onSelectFinalWinner(data.final.team1!)
                     : undefined
                 }
               />
@@ -443,8 +443,8 @@ function AdvancedLayout({
                 onClick={
                   isAdmin && data.final.team2
                     ? () =>
-                        onSelectFinalWinner &&
-                        onSelectFinalWinner(data.final.team2!)
+                      onSelectFinalWinner &&
+                      onSelectFinalWinner(data.final.team2!)
                     : undefined
                 }
               />
@@ -484,7 +484,7 @@ function AdvancedLayout({
 }
 
 export default function BracketsPage() {
-  const [category, setCategory] = useState("beginners");
+  const [category, setCategory] = useState<Category>(BracketCategory.BEGINNERS);
   // State-wrapped bracket data to allow future mutations (admin interactions, undo, etc.)
   const [beginnersData, setBeginnersData] =
     useState<BeginnersBracketData>(BEGINNERS_DATA);
@@ -495,43 +495,7 @@ export default function BracketsPage() {
   const [history, setHistory] = useState<
     { beginners: BeginnersBracketData; advanced: AdvancedBracketData }[]
   >([]);
-  type SaveBracketHook = {
-    mutate: (args: { category: Category; payload: unknown }) => void;
-    isPending: boolean;
-  };
-
-  // Define a narrow API shape describing the bracket.saveBracket.useMutation hook to avoid `any`.
-  type ApiWithBracketHook = {
-    bracket?: {
-      saveBracket?: {
-        useMutation?: () => SaveBracketHook | undefined;
-      };
-    };
-  };
-
-  // Safely attempt to obtain the mutation hook; if unavailable, provide a fallback implementation.
-  const saveBracket: SaveBracketHook = (() => {
-    try {
-      const typedApi = api as unknown as ApiWithBracketHook;
-      const maybeMut = typedApi?.bracket?.saveBracket?.useMutation?.();
-      if (maybeMut && typeof maybeMut.mutate === "function") {
-        return maybeMut;
-      }
-    } catch (e) {
-      // swallow and fall back to noop implementation
-      console.warn("saveBracket hook unavailable, using fallback:", e);
-    }
-    return {
-      mutate: (args: { category: Category; payload: unknown }) => {
-        // Provide a visible no-op to avoid empty function lint errors and aid debugging if called unexpectedly
-        console.warn(
-          "saveBracket.mutate called but no remote hook is available. Args:",
-          args,
-        );
-      },
-      isPending: false,
-    };
-  })();
+  const saveBracket = api.bracket.saveBracket.useMutation();
 
   // Helper to push a deep-cloned snapshot for undo
   const pushHistory = () => {
@@ -621,11 +585,11 @@ export default function BracketsPage() {
       const newRounds = prev.rounds.map((r) =>
         r.name === "Quarterfinals"
           ? {
-              ...r,
-              matches: r.matches.map((m) =>
-                m.id === matchId ? { ...m, winner: team } : m,
-              ),
-            }
+            ...r,
+            matches: r.matches.map((m) =>
+              m.id === matchId ? { ...m, winner: team } : m,
+            ),
+          }
           : r,
       );
       return recomputeAdvancedStructure({ ...prev, rounds: newRounds });
@@ -637,11 +601,11 @@ export default function BracketsPage() {
       const newRounds = prev.rounds.map((r) =>
         r.name === "Semifinals"
           ? {
-              ...r,
-              matches: r.matches.map((m) =>
-                m.id === matchId ? { ...m, winner: team } : m,
-              ),
-            }
+            ...r,
+            matches: r.matches.map((m) =>
+              m.id === matchId ? { ...m, winner: team } : m,
+            ),
+          }
           : r,
       );
       return recomputeAdvancedStructure({ ...prev, rounds: newRounds });
@@ -814,7 +778,7 @@ export default function BracketsPage() {
         <Header title="ROBOCHAMP" subtitle={category.toUpperCase()} />
         {/* Category Toggle */}
         <div className="-mt-10 flex rounded-full border border-white/10 bg-[#1a1a1a] p-1.5">
-          {(["beginners", "advanced"] as Category[]).map((cat) => (
+          {([BracketCategory.BEGINNERS, BracketCategory.ADVANCED] as Category[]).map((cat) => (
             <button
               key={cat}
               onClick={() => setCategory(cat)}
@@ -828,12 +792,17 @@ export default function BracketsPage() {
         <div className="mt-4 flex items-center gap-4">
           <button
             onClick={() => {
-              const payload =
-                category === "beginners" ? beginnersData : advancedData;
-              saveBracket.mutate({
-                category: category as "beginners" | "advanced",
-                payload,
-              });
+              if (category === BracketCategory.BEGINNERS) {
+                saveBracket.mutate({
+                  category: BracketCategory.BEGINNERS,
+                  payload: beginnersData,
+                });
+              } else {
+                saveBracket.mutate({
+                  category: BracketCategory.ADVANCED,
+                  payload: advancedData,
+                });
+              }
             }}
             className={`rounded-full border px-6 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 ${saveBracket.isPending ? "cursor-wait opacity-50" : "border-green-500 bg-[#1a1a1a] text-green-400 hover:bg-green-600 hover:text-white"}`}
           >
@@ -842,7 +811,7 @@ export default function BracketsPage() {
         </div>
       </div>
       {/* Main Content Area */}
-      {category === "beginners" ? (
+      {category === BracketCategory.BEGINNERS ? (
         <BeginnersLayout
           data={beginnersData}
           isAdmin={isAdmin}
