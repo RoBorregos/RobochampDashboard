@@ -7,53 +7,62 @@ import {
   challengeCSchema,
 } from "rbrgs/lib/schemas";
 
-const computePointsLOP = (lackOfProgress: number) => {
-  switch (lackOfProgress) {
-    case 0:
-      return 20;
-    case 1:
-      return 10;
-    case 2:
-      return 5;
-    default:
-      return 0;
-  }
+const computePointsLOP = (_lackOfProgress: number) => {
+  return 0;
 };
 
 export const judgeRouter = createTRPCRouter({
   roundA: judgeProcedure
     .input(challengeASchema)
     .mutation(async ({ ctx, input }) => {
+      const red = input.redCubes ?? 0;
+      const green = input.greenCubes ?? 0;
+      const blue = input.blueCubes ?? 0;
+      const yellow = input.yellowCubes ?? 0;
+      const seesaw = input.seesawCrossings ?? 0;
+      const cables = input.cablesCut ?? 0;
+      const incorrect = input.incorrectCut ?? false;
+
       let points = 0;
 
-      // Calculate points for flags (20, 25, 30, 35)
-      for (let i = 0; i < input.flagsAccomplished; i++) {
-        points += 20 + i * 5;
-      }
+      let zoneAPoints = 0;
+      zoneAPoints += red * 10;
+      zoneAPoints += green * 10;
+      zoneAPoints += blue * 10;
+      zoneAPoints += yellow * 35;
+      zoneAPoints += seesaw * 25;
+      if (zoneAPoints > 120) zoneAPoints = 120;
 
-      // Add points for finishing the track
-      if (input.finishedTrack) {
-        points += 10;
-      }
+      let zoneBPoints = cables * 20;
+      if (zoneBPoints > 80) zoneBPoints = 80;
 
-      // Add points for bonus
-      if (input.genericFormSchema.obtainedBonus) {
-        points += 30;
+      points += zoneAPoints + zoneBPoints;
+
+      const roundTime = input.genericFormSchema.roundTimeSeconds ?? 0;
+      if (zoneAPoints === 120 && zoneBPoints === 80) {
+        const secondsRemaining = Math.max(0, 300 - roundTime);
+        points += secondsRemaining;
       }
 
       points += computePointsLOP(input.genericFormSchema.lackOfProgress);
 
       return await ctx.db.challengeA.create({
         data: {
-          flagsAccomplished: input.flagsAccomplished,
           finishedTrack: input.finishedTrack,
           obtainedBonus: input.genericFormSchema.obtainedBonus,
           roundTimeSeconds: input.genericFormSchema.roundTimeSeconds,
           lackOfProgress: input.genericFormSchema.lackOfProgress,
-          roundId: input.genericFormSchema.roundId,
+          roundId: input.genericFormSchema.roundId ?? "",
           teamId: input.genericFormSchema.teamId,
           judgeID: ctx.session.user.id,
           points: points,
+          redCubes: red,
+          greenCubes: green,
+          blueCubes: blue,
+          yellowCubes: yellow,
+          seesawCrossings: seesaw,
+          cablesCut: cables,
+          incorrectCut: incorrect,
         },
       });
     }),
@@ -74,7 +83,7 @@ export const judgeRouter = createTRPCRouter({
           roundTimeSeconds: input.genericFormSchema.roundTimeSeconds,
           teamId: input.genericFormSchema.teamId,
           judgeID: ctx.session.user.id,
-          roundId: input.genericFormSchema.roundId,
+          roundId: input.genericFormSchema.roundId ?? "",
         },
       });
     }),
@@ -111,7 +120,7 @@ export const judgeRouter = createTRPCRouter({
           roundTimeSeconds: input.genericFormSchema.roundTimeSeconds,
           teamId: input.genericFormSchema.teamId,
           judgeID: ctx.session.user.id,
-          roundId: input.genericFormSchema.roundId,
+          roundId: input.genericFormSchema.roundId ?? "",
         },
       });
     }),
