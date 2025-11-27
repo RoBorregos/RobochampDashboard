@@ -9,27 +9,22 @@ export const genericDataSchema = z.object({
     .number()
     .int()
     .min(0, { message: "roundTimeSeconds must be greater than or equal to 0" })
-    // Competition rounds are 5 minutes (300 seconds)
     .max(300, {
       message: "roundTimeSeconds must be less than or equal to 300",
     }),
   lackOfProgress: z.coerce.number().int().min(-1, {
     message: "lackOfProgress must be greater than or equal to -1",
   }),
-  // roundId is optional — the system does not rely on fixed rounds by default.
-  // It can be provided later if needed (string), or omitted.
   roundId: z.string().optional(),
   teamId: z.string().min(1),
 });
 
 export const challengeASchema = z.object({
   genericFormSchema: genericDataSchema,
-  // Top-level fields for Zone A and Zone B (flat like original ChallengeA)
   redCubes: z.coerce
     .number()
     .int()
     .min(0, { message: "redCubes must be >= 0" })
-    // Only 2 red cubes are used in the system
     .max(2, { message: "redCubes must be <= 2" }),
   greenCubes: z.coerce
     .number()
@@ -45,13 +40,11 @@ export const challengeASchema = z.object({
     .number()
     .int()
     .min(0, { message: "yellowCubes must be >= 0" })
-    // Only one yellow cube in the game
     .max(1, { message: "yellowCubes must be <= 1" }),
   seesawCrossings: z.coerce
     .number()
     .int()
     .min(0, { message: "seesawCrossings must be >= 0" })
-    // Seesaw can be crossed at most once per the new rules
     .max(1, { message: "seesawCrossings must be 0 or 1" }),
 
   cablesCut: z.coerce

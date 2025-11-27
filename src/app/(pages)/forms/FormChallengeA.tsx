@@ -22,7 +22,6 @@ import { Input } from "rbrgs/app/_components/shadcn/ui/input";
 import Select from "react-select";
 
 import { api } from "~/trpc/react";
-// (no radio group needed for this simplified form)
 
 type FormData = z.infer<typeof challengeASchema>;
 export type FormControlA = Control<FormData>;
@@ -67,7 +66,6 @@ export const FormChallengeA = () => {
         action: {
           label: "Undo",
           onClick: () => {
-            // also clear local lastId if present
             deleteEvaluation.mutate({ id: data.id });
             setLastCreatedId(null);
           },
@@ -87,7 +85,6 @@ export const FormChallengeA = () => {
   }));
 
   function onSubmit(data: FormData) {
-    // Basic enforcement: cannot score zone B if zone A not completed (at least 4 cubes in deposit)
     const cubesInDeposit =
       (data.redCubes ?? 0) +
       (data.greenCubes ?? 0) +
@@ -134,14 +131,6 @@ export const FormChallengeA = () => {
             </FormItem>
           )}
         />
-        {/* <div className="rounded border p-4">
-          <h3 className="font-semibold">Zona A — Cubos y Sube y Baja</h3>
-          <p className="text-sm text-slate-300">
-            Cada cubo rojo/verde/azul = 10 pts, amarillo = 35 pts, cruzar sube y
-            baja = 25 pts. Máx 120 pts. Se cuentan los cubos que estén en el
-            depósito al final de la ronda.
-          </p>
-          <div className="mt-3 grid grid-cols-2 gap-3"> */}
         <FormField
           control={form.control}
           name="redCubes"
@@ -228,18 +217,17 @@ export const FormChallengeA = () => {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Incorrect cable cut (ended round)</FormLabel>
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    className="ml-3"
-                  />
-                </FormControl>
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  className="ml-3"
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        {/* Other things */}
         <FormField
           control={form.control}
           name="genericFormSchema.obtainedBonus"
@@ -289,7 +277,6 @@ export const FormChallengeA = () => {
             </FormItem>
           )}
         />
-        {/* roundId removed from UI — system records entries individually. */}
         <FormField
           control={form.control}
           name="genericFormSchema.teamId"
