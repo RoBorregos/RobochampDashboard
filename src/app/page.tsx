@@ -4,31 +4,14 @@ import capitalOne from "../../public/images/sponsors/CapitalOne.png";
 import stanser from "../../public/images/sponsors/Stanser.png";
 import github from "../../public/images/sponsors/github.png";
 import robologo from "../../public/images/white-logo.png";
-import coffeeCart from "../../public/images/sponsors/coffeeCart.png";
-import peckers from "../../public/images/sponsors/peckers.png";
-import tapiocaHouse from "../../public/images/sponsors/tapiocaHouse.jpg";
-import kube from "../../public/images/sponsors/kube.jpg";
 import digikey from "../../public/images/sponsors/DigiKey.png";
-import kiko from "../../public/images/sponsors/kiko.jpg";
-import heppy from "../../public/images/sponsors/heppy.png";
-import line from "../../public/images/line.jpg";
+import robochamp from "../../public/images/robochamp.png";
 import Footer from "./_components/footer";
 import EventTimeline from "./_components/timeline";
 import ImageFade from "./_components/imageFade";
 
 export default async function Home() {
-  const sponsors = [
-    capitalOne,
-    stanser,
-    github,
-    digikey,
-    tapiocaHouse,
-    coffeeCart,
-    peckers,
-    kube,
-    kiko,
-    heppy,
-  ];
+  const sponsors = [capitalOne, stanser, github, digikey];
 
   return (
     <HydrateClient>
@@ -56,12 +39,12 @@ export default async function Home() {
         <div className="mx-[10vw] text-center font-archivo text-[1rem] text-white lg:mx-[10rem] lg:text-[1.5rem]">
           <span className="text-[2rem] font-bold">Meet the </span>
           <span className="font-jersey_25 text-[4rem] text-roboblue">
-            challenges
+            challenge
           </span>
           <div className="mt-[10vw] lg:mx-[8vw] lg:mt-[1vw]">
-            Distributed in three different arenas, teams will have three
-            opportunities to demonstrate their skills and creativity in each one
-            of them by scoring points in the unique tests.
+            RoBorregos with the Tec de Monterrey&apos;s school of engineering
+            presents RoboChamp. A robotics competition where teams will take
+            their first steps into the world of robotics and programming.
           </div>
         </div>
 
@@ -70,7 +53,7 @@ export default async function Home() {
           <div className="rounded-xl bg-gradient-to-tr from-neutral-950 to-neutral-800">
             <div className="group relative">
               <Image
-                src={line}
+                src={robochamp}
                 alt=""
                 className={`h-[15rem] w-full rounded-xl object-cover blur-[0.1rem] transition duration-300 ease-in-out group-hover:blur-none lg:ml-5 lg:mt-5`}
               />
@@ -79,9 +62,15 @@ export default async function Home() {
               </div>
             </div>
             <p className="m-[1rem] text-justify font-archivo text-white">
-              In this challenge, teams will have to demonstrate their precision
-              and control as they navigate a complex maze to reach and
-              successfully deactivate a simulated bomb within a set time limit.
+              El destino de la ciudad pende de un hilo en la Zona 2: Sistema
+              Madre de la Bomba. Tras superar la seguridad inicial, el operario
+              y su equipo se enfrentan a la misión más crítica: desactivar la
+              bomba. Deberán demostrar precisión y lógica para
+              &quot;cortar&quot; los cuatro cables (azul, rojo, verde, amarillo)
+              en el orden exacto, cuya combinación se oculta en pistas
+              aleatorias. La gestión del riesgo, la toma de decisiones bajo
+              presión y la coordinación experta definirán el éxito o el fracaso
+              en este momento crucial.
             </p>
           </div>
         </section>
@@ -95,13 +84,13 @@ export default async function Home() {
           </span>
         </div>
 
-        <section className="mt-[3rem] grid w-full grid-cols-2 gap-5 bg-white px-[5vw] py-5 lg:grid-cols-5 lg:px-[5rem]">
+        <section className="mt-[3rem] grid w-full grid-cols-2 gap-5 bg-white px-[5vw] py-5 lg:grid-cols-4 lg:px-[5rem]">
           {sponsors.map((sponsor, index) => (
             <div key={index} className="flex items-center justify-center">
               <Image
                 src={sponsor}
                 alt={sponsor.src}
-                className="h-[5rem] w-full max-w-[200px] object-contain"
+                className="h-[10rem] w-full max-w-[200px] object-contain"
               />
             </div>
           ))}
