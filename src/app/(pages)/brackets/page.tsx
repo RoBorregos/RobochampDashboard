@@ -512,7 +512,6 @@ export default function BracketsPage() {
     ]);
   };
 
-  // Advanced propagation logic
   const recomputeAdvancedStructure = (
     data: AdvancedBracketData,
   ): AdvancedBracketData => {
