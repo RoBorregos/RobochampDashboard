@@ -11,7 +11,7 @@ interface Match {
   id: string;
   team1?: string;
   team2?: string;
-  team3?: string; // Used only in advanced triple quarter representation
+  team3?: string; 
   winner?: string;
 }
 
@@ -20,7 +20,6 @@ interface Round {
   matches: Match[];
 }
 
-// --- Advanced Bracket Interfaces (Standard Tree) ---
 interface AdvancedBracketData {
   rounds: Round[];
   final: Match;
@@ -28,25 +27,21 @@ interface AdvancedBracketData {
   winner?: string;
 }
 
-// --- Beginners Bracket Interfaces (3 Groups) ---
 interface Group {
   id: string;
   name: string;
-  teams: string[]; // List of all teams in the group
-  qualified: string[]; // The 2 teams selected to advance (max 2)
-  finalMatch: Match; // Final match between the 2 qualified teams
+  teams: string[]; 
+  qualified: string[]; 
+  finalMatch: Match; 
 }
 
 interface BeginnersBracketData {
   groups: Group[];
-  semifinalists: string[]; // Exactly 3 (one per group)
-  final: Match; // Final between 2 of the semifinalists
-  thirdPlaceTeam: string; // Automatic third place (the semifinalist not in final)
+  semifinalists: string[]; 
+  final: Match; 
+  thirdPlaceTeam: string;
 }
 
-// --- Data Constants ---
-
-// Inicial: sólo equipos base; winners se definen vía interacción admin.
 const BEGINNERS_DATA: BeginnersBracketData = {
   groups: [
     {
@@ -110,7 +105,7 @@ const ADVANCED_DATA: AdvancedBracketData = {
   thirdPlace: { id: "atp" },
 };
 
-// --- Components ---
+
 
 function TeamPill({
   name,
@@ -181,8 +176,6 @@ function MatchNode({
   );
 }
 
-// --- Beginners Components ---
-
 function GroupBracket({
   group,
   isAdmin,
@@ -243,8 +236,6 @@ function GroupBracket({
     </div>
   );
 }
-
-// --- Beginners Layout ---
 
 function BeginnersLayout({
   data,
@@ -492,154 +483,124 @@ export default function BracketsPage() {
     useState<AdvancedBracketData>(ADVANCED_DATA);
   // Always admin mode on this page
   const isAdmin = true;
-  const [history, setHistory] = useState<
-    { beginners: BeginnersBracketData; advanced: AdvancedBracketData }[]
-  >([]);
-  const saveBracket = api.bracket.saveBracket.useMutation();
+  const saveBracket = api.bracket.saveBracket.useMutation({
+    onSuccess: () => {
+      alert("Bracket guardado exitosamente!");
+    },
+    onError: (error) => {
+      alert(`Error al guardar: ${error.message}`);
+    },
+  });
 
-  // Helper to push a deep-cloned snapshot for undo
-  const pushHistory = () => {
-    setHistory((h) => [
-      ...h,
-      {
-        beginners: JSON.parse(
-          JSON.stringify(beginnersData),
-        ) as BeginnersBracketData,
-        advanced: JSON.parse(
-          JSON.stringify(advancedData),
-        ) as AdvancedBracketData,
-      },
-    ]);
-  };
-
-  const recomputeAdvancedStructure = (
-    data: AdvancedBracketData,
-  ): AdvancedBracketData => {
-    const quarterRound = data.rounds.find((r) => r.name === "Quarterfinals");
-    const semiRound = data.rounds.find((r) => r.name === "Semifinals");
-    if (!quarterRound || !semiRound) return data;
-    const qWinners = quarterRound.matches
-      .map((m) => m.winner)
-      .filter(Boolean) as string[];
-    // Map quarter winners into semifinal placeholders (vertical list)
-    const newSemiMatches = semiRound.matches.map((m, idx) => {
-      const newTeam = qWinners[idx] ?? m.team1;
-      const winnerValid =
-        m.winner && m.winner === newTeam ? m.winner : undefined;
-      return { ...m, team1: newTeam, winner: winnerValid };
-    });
-    const updatedRounds = data.rounds.map((r) =>
-      r.name === "Semifinals" ? { ...r, matches: newSemiMatches } : r,
-    );
-    // Determine semifinal winners
-    const semiWinners = newSemiMatches
-      .map((m) => m.winner)
-      .filter(Boolean) as string[];
-    const final = { ...data.final };
-    if (semiWinners.length >= 2) {
-      // If current final teams not consistent, assign first two winners
-      const invalid =
-        !final.team1 ||
-        !final.team2 ||
-        final.team1 === final.team2 ||
-        !semiWinners.includes(final.team1) ||
-        !semiWinners.includes(final.team2);
-      if (invalid) {
-        final.team1 = semiWinners[0];
-        final.team2 = semiWinners[1];
-        if (
-          final.winner &&
-          final.winner !== final.team1 &&
-          final.winner !== final.team2
-        )
-          delete final.winner;
-      }
-    } else {
-      final.team1 = undefined;
-      final.team2 = undefined;
-      delete final.winner;
-    }
-    // Third place determination: remaining semifinal winner not in final
-    const thirdPlace = data.thirdPlace ? { ...data.thirdPlace } : undefined;
-    if (semiWinners.length === 3 && final.team1 && final.team2) {
-      const remaining = semiWinners.find(
-        (w) => w !== final.team1 && w !== final.team2,
-      );
-      if (thirdPlace) {
-        thirdPlace.team1 = remaining;
-        if (thirdPlace.winner && thirdPlace.winner !== remaining)
-          delete thirdPlace.winner;
-      }
-    } else if (thirdPlace) {
-      // Reset if not enough info
-      if (!final.team1 || !final.team2) {
-        delete thirdPlace.winner;
-      }
-    }
-    return { ...data, rounds: updatedRounds, final, thirdPlace };
-  };
+  // Advanced bracket handlers
   const handleAdvancedMatchWinner = (matchId: string, team: string) => {
-    pushHistory();
     setAdvancedData((prev) => {
+      // Update quarterfinal winner
       const newRounds = prev.rounds.map((r) =>
         r.name === "Quarterfinals"
           ? {
             ...r,
             matches: r.matches.map((m) =>
-              m.id === matchId ? { ...m, winner: team } : m,
+              m.id === matchId ? { ...m, winner: team } : m
             ),
           }
-          : r,
+          : r
       );
-      return recomputeAdvancedStructure({ ...prev, rounds: newRounds });
+
+      // Get all quarter winners and update semifinals
+      const quarterRound = newRounds.find((r) => r.name === "Quarterfinals");
+      const qWinners = quarterRound?.matches.map((m) => m.winner).filter(Boolean) ?? [];
+      
+      const updatedRounds = newRounds.map((r) =>
+        r.name === "Semifinals"
+          ? {
+            ...r,
+            matches: r.matches.map((m, idx) => ({
+              ...m,
+              team1: qWinners[idx] ?? m.team1,
+            })),
+          }
+          : r
+      );
+
+      // Get semi winners and update final
+      const semiRound = updatedRounds.find((r) => r.name === "Semifinals");
+      const semiWinners = semiRound?.matches.map((m) => m.winner).filter(Boolean) ?? [];
+      
+      const final = { ...prev.final };
+      if (semiWinners.length >= 2) {
+        final.team1 = semiWinners[0];
+        final.team2 = semiWinners[1];
+      }
+
+      // Third place gets remaining semi winner
+      const thirdPlace = prev.thirdPlace ? { ...prev.thirdPlace } : undefined;
+      if (thirdPlace && semiWinners.length === 3) {
+        thirdPlace.team1 = semiWinners[2];
+      }
+
+      return { ...prev, rounds: updatedRounds, final, thirdPlace };
     });
   };
+
   const handleAdvancedSemifinalWinner = (matchId: string, team: string) => {
-    pushHistory();
     setAdvancedData((prev) => {
+      // Update semifinal winner
       const newRounds = prev.rounds.map((r) =>
         r.name === "Semifinals"
           ? {
             ...r,
             matches: r.matches.map((m) =>
-              m.id === matchId ? { ...m, winner: team } : m,
+              m.id === matchId ? { ...m, winner: team } : m
             ),
           }
-          : r,
+          : r
       );
-      return recomputeAdvancedStructure({ ...prev, rounds: newRounds });
+
+      // Get semi winners and update final
+      const semiRound = newRounds.find((r) => r.name === "Semifinals");
+      const semiWinners = semiRound?.matches.map((m) => m.winner).filter(Boolean) ?? [];
+      
+      const final = { ...prev.final };
+      if (semiWinners.length >= 2) {
+        final.team1 = semiWinners[0];
+        final.team2 = semiWinners[1];
+      }
+
+      // Third place gets remaining semi winner
+      const thirdPlace = prev.thirdPlace ? { ...prev.thirdPlace } : undefined;
+      if (thirdPlace && semiWinners.length === 3) {
+        thirdPlace.team1 = semiWinners[2];
+      }
+
+      return { ...prev, rounds: newRounds, final, thirdPlace };
     });
   };
+
   const handleAdvancedFinalWinner = (team: string) => {
-    pushHistory();
-    setAdvancedData((prev) =>
-      recomputeAdvancedStructure({
-        ...prev,
-        final: { ...prev.final, winner: team },
-      }),
-    );
+    setAdvancedData((prev) => ({
+      ...prev,
+      final: { ...prev.final, winner: team },
+    }));
   };
+
   const handleAdvancedThirdPlace = (team: string) => {
-    pushHistory();
     setAdvancedData((prev) =>
       prev.thirdPlace
         ? { ...prev, thirdPlace: { ...prev.thirdPlace, winner: team } }
-        : prev,
+        : prev
     );
   };
+
+  // Beginners bracket handlers
   const handleBeginnersFinalWinner = (team: string) => {
-    pushHistory();
     setBeginnersData((prev) => ({
       ...prev,
       final: { ...prev.final, winner: team },
-      thirdPlaceTeam:
-        prev.semifinalists.find(
-          (s) => s !== prev.final.team1 && s !== prev.final.team2,
-        ) ?? prev.thirdPlaceTeam,
     }));
   };
+
   const handleToggleQualified = (groupId: string, team: string) => {
-    pushHistory();
     setBeginnersData((prev) => {
       const groups = prev.groups.map((g) => {
         if (g.id !== groupId) return g;
@@ -648,24 +609,19 @@ export default function BracketsPage() {
         const teamIndex = qualified.indexOf(team);
 
         if (teamIndex >= 0) {
-          // Team is already qualified, remove it
           qualified.splice(teamIndex, 1);
         } else if (qualified.length < 2) {
-          // Add team if less than 2 qualified
           qualified.push(team);
         }
 
-        // Update finalMatch participants when we have 2 qualified
         const finalMatch = { ...g.finalMatch };
         if (qualified.length === 2) {
           finalMatch.team1 = qualified[0];
           finalMatch.team2 = qualified[1];
-          // Reset winner if teams changed
           if (finalMatch.winner && !qualified.includes(finalMatch.winner)) {
             delete finalMatch.winner;
           }
         } else {
-          // Clear finalMatch if not enough qualified
           finalMatch.team1 = undefined;
           finalMatch.team2 = undefined;
           delete finalMatch.winner;
@@ -674,99 +630,41 @@ export default function BracketsPage() {
         return { ...g, qualified, finalMatch };
       });
 
-      // Collect semifinalists from group final winners
-      const semifinalists = groups
-        .map((g) => g.finalMatch.winner)
-        .filter(Boolean) as string[];
-
-      // Auto-assign final participants
+      // Get group final winners and update main final
+      const groupWinners = groups.map((g) => g.finalMatch.winner).filter(Boolean) as string[];
+      
       const final = { ...prev.final };
-      let thirdPlaceTeam = prev.thirdPlaceTeam;
-
-      if (semifinalists.length >= 2) {
-        const finalistsValid =
-          final.team1 &&
-          final.team2 &&
-          semifinalists.includes(final.team1) &&
-          semifinalists.includes(final.team2) &&
-          final.team1 !== final.team2;
-        if (!finalistsValid) {
-          final.team1 = semifinalists[0];
-          final.team2 = semifinalists[1];
-          if (
-            final.winner &&
-            final.winner !== final.team1 &&
-            final.winner !== final.team2
-          )
-            delete final.winner;
-        }
-      } else {
-        final.team1 = undefined;
-        final.team2 = undefined;
-        delete final.winner;
+      if (groupWinners.length >= 2) {
+        final.team1 = groupWinners[0];
+        final.team2 = groupWinners[1];
       }
 
-      // Third place: remaining semifinalist
-      if (semifinalists.length === 3 && final.team1 && final.team2) {
-        const remaining = semifinalists.find(
-          (s) => s !== final.team1 && s !== final.team2,
-        );
-        thirdPlaceTeam = remaining ?? "";
-      } else {
-        thirdPlaceTeam = "";
-      }
+      const thirdPlaceTeam = groupWinners.length === 3 ? (groupWinners[2] ?? "") : "";
 
-      return { ...prev, groups, semifinalists, final, thirdPlaceTeam };
+      return { ...prev, groups, final, thirdPlaceTeam };
     });
   };
 
   const handleGroupFinalWinner = (groupId: string, team: string) => {
-    pushHistory();
     setBeginnersData((prev) => {
-      const groups = prev.groups.map((g) => {
-        if (g.id !== groupId) return g;
-        return { ...g, finalMatch: { ...g.finalMatch, winner: team } };
-      });
+      const groups = prev.groups.map((g) =>
+        g.id === groupId
+          ? { ...g, finalMatch: { ...g.finalMatch, winner: team } }
+          : g
+      );
 
-      const semifinalists = groups
-        .map((g) => g.finalMatch.winner)
-        .filter(Boolean) as string[];
+      // Get group final winners and update main final
+      const groupWinners = groups.map((g) => g.finalMatch.winner).filter(Boolean) as string[];
+      
       const final = { ...prev.final };
-
-      if (semifinalists.length >= 2) {
-        const finalistsValid =
-          final.team1 &&
-          final.team2 &&
-          semifinalists.includes(final.team1) &&
-          semifinalists.includes(final.team2) &&
-          final.team1 !== final.team2;
-        if (!finalistsValid) {
-          final.team1 = semifinalists[0];
-          final.team2 = semifinalists[1];
-          if (
-            final.winner &&
-            final.winner !== final.team1 &&
-            final.winner !== final.team2
-          )
-            delete final.winner;
-        }
-      } else {
-        final.team1 = undefined;
-        final.team2 = undefined;
-        delete final.winner;
+      if (groupWinners.length >= 2) {
+        final.team1 = groupWinners[0];
+        final.team2 = groupWinners[1];
       }
 
-      let thirdPlaceTeam = prev.thirdPlaceTeam;
-      if (semifinalists.length === 3 && final.team1 && final.team2) {
-        const remaining = semifinalists.find(
-          (s) => s !== final.team1 && s !== final.team2,
-        );
-        thirdPlaceTeam = remaining ?? "";
-      } else {
-        thirdPlaceTeam = "";
-      }
+      const thirdPlaceTeam = groupWinners.length === 3 ? (groupWinners[2] ?? "") : "";
 
-      return { ...prev, groups, semifinalists, final, thirdPlaceTeam };
+      return { ...prev, groups, final, thirdPlaceTeam };
     });
   };
 
