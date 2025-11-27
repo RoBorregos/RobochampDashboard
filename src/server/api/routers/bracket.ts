@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "rbrgs/server/api/trpc";
+import { createTRPCRouter, publicProcedure, adminProcedure } from "rbrgs/server/api/trpc";
 import { Prisma, BracketCategory } from "@prisma/client";
 
 // Schemas
@@ -50,7 +50,7 @@ export const bracketRouter = createTRPCRouter({
       return record?.data ?? null;
     }),
 
-  saveBracket: publicProcedure
+  saveBracket: adminProcedure
     .input(
       z.discriminatedUnion("category", [
         z.object({

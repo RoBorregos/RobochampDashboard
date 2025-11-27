@@ -1,7 +1,8 @@
 "use client";
 
-import { BracketCategory } from "@prisma/client";
-import { useState } from "react";
+import { BracketCategory, Role } from "@prisma/client";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { api } from "~/trpc/react";
 import Header from "~/app/_components/header";
 
@@ -475,14 +476,37 @@ function AdvancedLayout({
 }
 
 export default function BracketsPage() {
+  const { data: session, status } = useSession();
   const [category, setCategory] = useState<Category>(BracketCategory.BEGINNERS);
-  // State-wrapped bracket data to allow future mutations (admin interactions, undo, etc.)
   const [beginnersData, setBeginnersData] =
     useState<BeginnersBracketData>(BEGINNERS_DATA);
   const [advancedData, setAdvancedData] =
     useState<AdvancedBracketData>(ADVANCED_DATA);
-  // Always admin mode on this page
-  const isAdmin = true;
+
+  // Check if user is admin
+  const isAdmin = session?.user?.role === Role.ADMIN;
+
+  // Load saved bracket data (public - anyone can view)
+  const { data: savedBeginnersData } = api.bracket.getBracket.useQuery(
+    { category: BracketCategory.BEGINNERS }
+  );
+  const { data: savedAdvancedData } = api.bracket.getBracket.useQuery(
+    { category: BracketCategory.ADVANCED }
+  );
+
+  // Initialize with saved data when loaded
+  useEffect(() => {
+    if (savedBeginnersData) {
+      setBeginnersData(savedBeginnersData as unknown as BeginnersBracketData);
+    }
+  }, [savedBeginnersData]);
+
+  useEffect(() => {
+    if (savedAdvancedData) {
+      setAdvancedData(savedAdvancedData as unknown as AdvancedBracketData);
+    }
+  }, [savedAdvancedData]);
+
   const saveBracket = api.bracket.saveBracket.useMutation({
     onSuccess: () => {
       alert("Bracket guardado exitosamente!");
@@ -668,6 +692,15 @@ export default function BracketsPage() {
     });
   };
 
+  // Show loading state while checking auth
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-white">
+        <div className="text-xl">Cargando...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center overflow-auto bg-[#0a0a0a] p-4 pt-24 text-white md:p-8 md:pt-32">
       {/* Unified header style */}
@@ -685,27 +718,29 @@ export default function BracketsPage() {
             </button>
           ))}
         </div>
-        {/* Admin Controls */}
-        <div className="mt-4 flex items-center gap-4">
-          <button
-            onClick={() => {
-              if (category === BracketCategory.BEGINNERS) {
-                saveBracket.mutate({
-                  category: BracketCategory.BEGINNERS,
-                  payload: beginnersData,
-                });
-              } else {
-                saveBracket.mutate({
-                  category: BracketCategory.ADVANCED,
-                  payload: advancedData,
-                });
-              }
-            }}
-            className={`rounded-full border px-6 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 ${saveBracket.isPending ? "cursor-wait opacity-50" : "border-green-500 bg-[#1a1a1a] text-green-400 hover:bg-green-600 hover:text-white"}`}
-          >
-            {saveBracket.isPending ? "Guardando..." : "Guardar Bracket"}
-          </button>
-        </div>
+        {/* Admin Controls - Only visible to admins */}
+        {isAdmin && (
+          <div className="mt-4 flex items-center gap-4">
+            <button
+              onClick={() => {
+                if (category === BracketCategory.BEGINNERS) {
+                  saveBracket.mutate({
+                    category: BracketCategory.BEGINNERS,
+                    payload: beginnersData,
+                  });
+                } else {
+                  saveBracket.mutate({
+                    category: BracketCategory.ADVANCED,
+                    payload: advancedData,
+                  });
+                }
+              }}
+              className={`rounded-full border px-6 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 ${saveBracket.isPending ? "cursor-wait opacity-50" : "border-green-500 bg-[#1a1a1a] text-green-400 hover:bg-green-600 hover:text-white"}`}
+            >
+              {saveBracket.isPending ? "Guardando..." : "Guardar Bracket"}
+            </button>
+          </div>
+        )}
       </div>
       {/* Main Content Area */}
       {category === BracketCategory.BEGINNERS ? (
