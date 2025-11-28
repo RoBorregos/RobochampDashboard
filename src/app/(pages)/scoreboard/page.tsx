@@ -6,14 +6,6 @@ import Header from "../../_components/header";
 import { api } from "~/trpc/react";
 import Title from "../../_components/title";
 
-type RoundScores = { score: number };
-type TeamScore = {
-  teamId: string;
-  teamName: string;
-  // rounds keys can come as strings (from JSON) or numbers; the shape is unknown from the API
-  rounds: Record<string, unknown> | Record<number, unknown>;
-  total?: number;
-};
 type ProcessedTeam = {
   teamId: string;
   teamName: string;
@@ -55,40 +47,27 @@ export default function ScoreboardPage() {
   const processed = React.useMemo<ProcessedTeam[]>(() => {
     if (!scores) return [];
 
-    // helper type guards
     const isRecord = (v: unknown): v is Record<string, unknown> =>
       v !== null && typeof v === "object" && !Array.isArray(v);
 
     const extractScore = (v: unknown): number => {
       if (!isRecord(v)) return 0;
-      const maybeScore = v["score"];
+      const maybeScore = v.score;
       if (typeof maybeScore === "number") return maybeScore;
 
-      // backward-compat: if API still returns per-challenge fields, sum them
-      const a =
-        typeof v["challengeA"] === "number" ? (v["challengeA"] as number) : 0;
-      const b =
-        typeof v["challengeB"] === "number" ? (v["challengeB"] as number) : 0;
-      const c =
-        typeof v["challengeC"] === "number" ? (v["challengeC"] as number) : 0;
+      const a = typeof v.challengeA === "number" ? v.challengeA : 0;
+      const b = typeof v.challengeB === "number" ? v.challengeB : 0;
+      const c = typeof v.challengeC === "number" ? v.challengeC : 0;
       return a + b + c;
     };
 
-    const raw = scores as unknown[] as unknown[];
-    const teams: ProcessedTeam[] = raw.map((t) => {
-      // try to safely read expected fields
-      const teamObj = t as unknown as Record<string, unknown>;
-      const teamId =
-        typeof teamObj["teamId"] === "string"
-          ? (teamObj["teamId"] as string)
-          : "";
+    const raw = scores as unknown[];
+    const teams: ProcessedTeam[] = raw.map((t): ProcessedTeam => {
+      const teamObj = t as Record<string, unknown>;
+      const teamId = typeof teamObj.teamId === "string" ? teamObj.teamId : "";
       const teamName =
-        typeof teamObj["teamName"] === "string"
-          ? (teamObj["teamName"] as string)
-          : "";
-      const roundsRaw = isRecord(teamObj["rounds"])
-        ? (teamObj["rounds"] as Record<string, unknown>)
-        : {};
+        typeof teamObj.teamName === "string" ? teamObj.teamName : "";
+      const roundsRaw = isRecord(teamObj.rounds) ? teamObj.rounds : {};
 
       const roundKeys = Object.keys(roundsRaw)
         .map((k) => Number(k))
@@ -97,21 +76,19 @@ export default function ScoreboardPage() {
       const lastScoreFromRounds =
         lastRound !== null ? extractScore(roundsRaw[String(lastRound)]) : 0;
       const lastScoreFromServer =
-        typeof teamObj["lastScore"] === "number"
-          ? (teamObj["lastScore"] as number)
-          : undefined;
-      const lastScore = typeof lastScoreFromServer === "number" ? lastScoreFromServer : lastScoreFromRounds;
-      // Prefer the server-provided `total` when available — server already
-      // computes accumulated sums. Fall back to summing rounds client-side.
+        typeof teamObj.lastScore === "number" ? teamObj.lastScore : undefined;
+      const lastScore =
+        typeof lastScoreFromServer === "number"
+          ? lastScoreFromServer
+          : lastScoreFromRounds;
       const accumulatedFromServer =
-        typeof teamObj["total"] === "number"
-          ? (teamObj["total"] as number)
-          : undefined;
+        typeof teamObj.total === "number" ? teamObj.total : undefined;
       const accumulated =
         typeof accumulatedFromServer === "number"
           ? accumulatedFromServer
           : roundKeys.reduce(
-              (sum: number, r: number) => sum + extractScore(roundsRaw[String(r)]),
+              (sum: number, r: number) =>
+                sum + extractScore(roundsRaw[String(r)]),
               0,
             );
 
@@ -119,13 +96,10 @@ export default function ScoreboardPage() {
         teamId,
         teamName,
         rounds: roundsRaw,
-        total:
-          typeof teamObj["total"] === "number"
-            ? (teamObj["total"] as number)
-            : undefined,
+        total: typeof teamObj.total === "number" ? teamObj.total : undefined,
         lastScore,
         accumulated,
-      } as ProcessedTeam;
+      };
     });
 
     return teams.sort((a, b) => b.accumulated - a.accumulated);
@@ -166,7 +140,7 @@ export default function ScoreboardPage() {
                   </thead>
                   <tbody>
                     {processed.length > 0 ? (
-                      processed.slice(0, 5).map((team, idx) => (
+                      processed.slice(0, 5).map((team) => (
                         <tr
                           key={team.teamId}
                           className="border-b border-gray-700"
