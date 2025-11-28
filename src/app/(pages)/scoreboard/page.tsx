@@ -4,6 +4,7 @@ import React from "react";
 import Footer from "../../_components/footer";
 import Header from "../../_components/header";
 import { api } from "~/trpc/react";
+import Title from "../../_components/title";
 
 type RoundScores = { score: number };
 type TeamScore = {
@@ -35,8 +36,11 @@ const TwitchEmbed = ({ channel }: { channel: string }) => (
 );
 
 export default function ScoreboardPage() {
-  const { data: scores, isLoading, refetch } =
-    api.scoreboard.getScoreboard.useQuery();
+  const {
+    data: scores,
+    isLoading,
+    refetch,
+  } = api.scoreboard.getScoreboard.useQuery();
 
   const { data: competitionStarted } =
     api.config.isCompetitionStarted.useQuery();
@@ -61,32 +65,50 @@ export default function ScoreboardPage() {
       if (typeof maybeScore === "number") return maybeScore;
 
       // backward-compat: if API still returns per-challenge fields, sum them
-      const a = typeof v["challengeA"] === "number" ? (v["challengeA"] as number) : 0;
-      const b = typeof v["challengeB"] === "number" ? (v["challengeB"] as number) : 0;
-      const c = typeof v["challengeC"] === "number" ? (v["challengeC"] as number) : 0;
+      const a =
+        typeof v["challengeA"] === "number" ? (v["challengeA"] as number) : 0;
+      const b =
+        typeof v["challengeB"] === "number" ? (v["challengeB"] as number) : 0;
+      const c =
+        typeof v["challengeC"] === "number" ? (v["challengeC"] as number) : 0;
       return a + b + c;
     };
 
-    const raw = (scores as unknown[]) as unknown[];
+    const raw = scores as unknown[] as unknown[];
     const teams: ProcessedTeam[] = raw.map((t) => {
       // try to safely read expected fields
-      const teamObj = (t as unknown) as Record<string, unknown>;
-      const teamId = typeof teamObj["teamId"] === "string" ? (teamObj["teamId"] as string) : "";
-      const teamName = typeof teamObj["teamName"] === "string" ? (teamObj["teamName"] as string) : "";
-      const roundsRaw = isRecord(teamObj["rounds"]) ? (teamObj["rounds"] as Record<string, unknown>) : {};
+      const teamObj = t as unknown as Record<string, unknown>;
+      const teamId =
+        typeof teamObj["teamId"] === "string"
+          ? (teamObj["teamId"] as string)
+          : "";
+      const teamName =
+        typeof teamObj["teamName"] === "string"
+          ? (teamObj["teamName"] as string)
+          : "";
+      const roundsRaw = isRecord(teamObj["rounds"])
+        ? (teamObj["rounds"] as Record<string, unknown>)
+        : {};
 
       const roundKeys = Object.keys(roundsRaw)
         .map((k) => Number(k))
         .filter((n) => !Number.isNaN(n));
       const lastRound = roundKeys.length ? Math.max(...roundKeys) : null;
-      const lastScore = lastRound !== null ? extractScore(roundsRaw[String(lastRound)]) : 0;
-      const accumulated = roundKeys.reduce((sum: number, r: number) => sum + extractScore(roundsRaw[String(r)]), 0);
+      const lastScore =
+        lastRound !== null ? extractScore(roundsRaw[String(lastRound)]) : 0;
+      const accumulated = roundKeys.reduce(
+        (sum: number, r: number) => sum + extractScore(roundsRaw[String(r)]),
+        0,
+      );
 
       return {
         teamId,
         teamName,
         rounds: roundsRaw,
-        total: typeof teamObj["total"] === "number" ? (teamObj["total"] as number) : undefined,
+        total:
+          typeof teamObj["total"] === "number"
+            ? (teamObj["total"] as number)
+            : undefined,
         lastScore,
         accumulated,
       } as ProcessedTeam;
@@ -99,7 +121,9 @@ export default function ScoreboardPage() {
     return (
       <div className="mt-[4rem] h-96 bg-black text-white">
         <Header title="Scoreboard" />
-        <p className="my-10 text-center text-lg">The competition will start soon!</p>
+        <p className="my-10 text-center text-lg">
+          The competition will start soon!
+        </p>
         <Footer />
       </div>
     );
@@ -115,8 +139,50 @@ export default function ScoreboardPage() {
             <TwitchEmbed channel="RoBorregosTeam" />
           </div>
 
-          <div className="my-auto w-full overflow-x-auto">
-            <table className="w-full table-fixed border-collapse text-white">
+          <div className="my-auto w-full">
+            <div className="space-y-4">
+              <div className="w-full">
+                <table className="w-full table-fixed border-collapse text-white">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="p-4 text-left">Team</th>
+                      <th className="p-4 text-right">Last Round Score</th>
+                      <th className="p-4 text-right">Accumulated Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {processed.length > 0 ? (
+                      processed.slice(0, 5).map((team, idx) => (
+                        <tr
+                          key={team.teamId}
+                          className="border-b border-gray-700"
+                        >
+                          <td className="p-4 font-medium">{team.teamName}</td>
+                          <td className="p-4 text-right">{team.lastScore}</td>
+                          <td className="p-4 text-right font-semibold">
+                            {team.accumulated}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="p-4 text-center">
+                          {isLoading ? "Loading..." : "No data available"}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Title title="General" />
+
+      <div className="mx-auto w-full max-w-7xl px-4">
+        <table className="w-full table-fixed border-collapse text-white">
           <thead>
             <tr className="border-b border-gray-700">
               <th className="p-4 text-left">Team</th>
@@ -126,11 +192,16 @@ export default function ScoreboardPage() {
           </thead>
           <tbody>
             {processed.length > 0 ? (
-              processed.map((team, idx) => (
-                <tr key={team.teamId} className="border-b border-gray-700">
+              processed.map((team) => (
+                <tr
+                  key={team.teamId}
+                  className="border-b border-gray-700 transition-colors hover:bg-gray-800/30"
+                >
                   <td className="p-4 font-medium">{team.teamName}</td>
                   <td className="p-4 text-right">{team.lastScore}</td>
-                  <td className="p-4 text-right font-semibold">{team.accumulated}</td>
+                  <td className="p-4 text-right font-semibold">
+                    {team.accumulated}
+                  </td>
                 </tr>
               ))
             ) : (
@@ -142,8 +213,6 @@ export default function ScoreboardPage() {
             )}
           </tbody>
         </table>
-          </div>
-        </div>
       </div>
 
       <Footer />
