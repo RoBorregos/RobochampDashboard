@@ -48,21 +48,21 @@ const BEGINNERS_DATA: BeginnersBracketData = {
     {
       id: "ga",
       name: "Grupo A",
-      teams: ["Team A1", "Team A2", "Team A3", "Team A4", "Team A5"],
+      teams: ["ALF4", "BrookieBot", "Clankers", "NullPointers", "Skibidy Circuits"],
       qualified: [],
       finalMatch: { id: "ga_final" },
     },
     {
       id: "gb",
       name: "Grupo B",
-      teams: ["Team B1", "Team B2", "Team B3", "Team B4"],
+      teams: ["Alfa Team", "Búhos Team", "Dream Team", "Robocops", "0xDEADBOTS"],
       qualified: [],
       finalMatch: { id: "gb_final" },
     },
     {
       id: "gc",
       name: "Grupo C",
-      teams: ["Team C1", "Team C2", "Team C3", "Team C4"],
+      teams: ["Aquilabots", "CheckMates", "Mecha Ryuu", "ROBO-HAWKS"],
       qualified: [],
       finalMatch: { id: "gc_final" },
     },
@@ -79,21 +79,21 @@ const ADVANCED_DATA: AdvancedBracketData = {
       matches: [
         {
           id: "aq1",
-          team1: "CyberWolves",
-          team2: "RoboTech",
-          team3: "NanoBots",
+          team1: "Aguilatronics",
+          team2: "Cloud Robotics",
+          team3: "Kairo",
         },
         {
           id: "aq2",
-          team1: "MechWarriors",
-          team2: "IronGiants",
-          team3: "QuantumForce",
+          team1: "Alebrijes",
+          team2: "Delta",
+          team3: "MecAlfa",
         },
         {
           id: "aq3",
-          team1: "TechTitans",
-          team2: "CircuitBreakers",
-          team3: "NanoBots",
+          team1: "Botbusters",
+          team2: "High Voltage",
+          team3: "Noche interestelar",
         },
       ],
     },
@@ -114,12 +114,14 @@ function TeamPill({
   small = false,
   onClick,
   disabled,
+  variant,
 }: {
-  name: string;
+  name?: string;
   isWinner?: boolean;
   small?: boolean;
   onClick?: () => void;
   disabled?: boolean;
+  variant?: "blue" | "gray";
 }) {
   const clickable = !!onClick && !disabled;
   return (
@@ -127,12 +129,13 @@ function TeamPill({
       type="button"
       disabled={!clickable}
       onClick={clickable ? onClick : undefined}
-      className={`relative flex select-none items-center justify-center ${small ? "h-10 w-32 text-xs" : "h-14 w-48 md:h-16 md:w-56"} rounded-2xl border transition-all duration-300 ${isWinner
-        ? "z-10 scale-105 border-blue-400 bg-blue-600 font-bold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]"
-        : "border-[#333] bg-[#1a1a1a] text-slate-400"
-        } ${clickable && !isWinner ? "cursor-pointer hover:border-blue-400 hover:shadow-[0_0_8px_rgba(59,130,246,0.4)]" : ""} ${!clickable ? "opacity-60" : ""} `}
+      className={`relative flex select-none items-center justify-center ${small ? "h-10 w-32 text-xs" : "h-14 w-48 md:h-16 md:w-56"} rounded-2xl border transition-all duration-300 ${
+        isWinner || variant === "blue"
+          ? "z-10 scale-105 border-blue-400 bg-blue-600 font-bold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+          : "border-[#333] bg-[#1a1a1a] text-slate-400"
+      } ${clickable && !(isWinner || variant === "blue") ? "cursor-pointer hover:border-blue-400 hover:shadow-[0_0_8px_rgba(59,130,246,0.4)]" : ""} ${!clickable ? "opacity-60" : ""} `}
     >
-      <span className="truncate px-4">{name}</span>
+      <span className="truncate px-4">{name ?? ""}</span>
     </button>
   );
 }
@@ -155,10 +158,6 @@ function MatchNode({
           onClick={onSelectTeam ? () => onSelectTeam(match.team1!) : undefined}
         />
       )}
-      {match.team2 && (
-        <div className="absolute right-[-1rem] top-1/2 hidden h-[calc(100%-3.5rem)] w-[1px] -translate-y-1/2 translate-x-full bg-slate-700 md:block"></div>
-      )}
-      <div className="absolute right-[-2rem] top-1/2 hidden h-[1px] w-4 translate-x-full bg-slate-700 md:block"></div>
       {match.team2 && (
         <TeamPill
           name={match.team2}
@@ -209,7 +208,7 @@ function GroupBracket({
       {/* Group Final match (always visible) */}
       <div className="relative flex flex-col gap-3">
         <TeamPill
-          name={group.finalMatch.team1 ?? "TBD"}
+          name={group.finalMatch.team1 ?? ""}
           isWinner={group.finalMatch.winner === group.finalMatch.team1}
           onClick={
             isAdmin && group.finalMatch.team1
@@ -223,7 +222,7 @@ function GroupBracket({
           VS
         </span>
         <TeamPill
-          name={group.finalMatch.team2 ?? "TBD"}
+          name={group.finalMatch.team2 ?? ""}
           isWinner={group.finalMatch.winner === group.finalMatch.team2}
           onClick={
             isAdmin && group.finalMatch.team2
@@ -277,7 +276,8 @@ function BeginnersLayout({
               </h3>
               <div className="flex flex-col items-center gap-1">
                 <TeamPill
-                  name={data.final.team1 ?? "TBD"}
+                  name={data.final.team1 ?? ""}
+                  variant="blue"
                   isWinner={data.final.winner === data.final.team1}
                   onClick={
                     isAdmin && data.final.team1
@@ -289,7 +289,8 @@ function BeginnersLayout({
                 />
                 <span className="text-[10px] font-bold text-slate-500">VS</span>
                 <TeamPill
-                  name={data.final.team2 ?? "TBD"}
+                  name={data.final.team2 ?? ""}
+                  variant="blue"
                   isWinner={data.final.winner === data.final.team2}
                   onClick={
                     isAdmin && data.final.team2
@@ -319,7 +320,7 @@ function BeginnersLayout({
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
               3er Lugar
             </h3>
-            <TeamPill name={data.thirdPlaceTeam ?? "TBD"} isWinner />
+            <TeamPill name={data.thirdPlaceTeam ?? ""} variant="blue" />
           </div>
         </div>
       </div>
@@ -383,12 +384,12 @@ function AdvancedLayout({
                       : undefined
                   }
                 />
-                <div className="absolute right-[-2rem] top-1/2 hidden h-[1px] w-12 bg-slate-700 md:block"></div>
+
               </div>
               {/* Semifinal single team (select to mark as winner) */}
               <div className="relative">
                 <TeamPill
-                  name={semiWinner ?? "TBD"}
+                  name={semiWinner ?? ""}
                   isWinner={!!semiMatch?.winner}
                   onClick={
                     isAdmin && semiMatch?.team1
@@ -401,7 +402,6 @@ function AdvancedLayout({
                       : undefined
                   }
                 />
-                <div className="absolute right-[-2rem] top-1/2 hidden h-[1px] md:block"></div>
               </div>
             </div>
           );
@@ -418,7 +418,8 @@ function AdvancedLayout({
             </h3>
             <div className="flex flex-col items-center gap-1">
               <TeamPill
-                name={data.final.team1 ?? "TBD"}
+                name={data.final.team1 ?? ""}
+                variant="blue"
                 isWinner={data.final.winner === data.final.team1}
                 onClick={
                   isAdmin && data.final.team1
@@ -430,7 +431,8 @@ function AdvancedLayout({
               />
               <span className="text-[10px] font-bold text-slate-500">VS</span>
               <TeamPill
-                name={data.final.team2 ?? "TBD"}
+                name={data.final.team2 ?? ""}
+                variant="blue"
                 isWinner={data.final.winner === data.final.team2}
                 onClick={
                   isAdmin && data.final.team2
@@ -464,7 +466,7 @@ function AdvancedLayout({
               3er Lugar
             </h3>
             <TeamPill
-              name={thirdPlaceName ?? "TBD"}
+              name={thirdPlaceName ?? ""}
               isWinner={!!data.thirdPlace?.winner}
               onClick={thirdPlaceClickable ? handleThirdPlaceClick : undefined}
             />
