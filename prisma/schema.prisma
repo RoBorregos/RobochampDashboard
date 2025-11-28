@@ -210,6 +210,18 @@ model Config {
   @@map("config")
 }
 
+enum BracketCategory {
+  BEGINNERS
+  ADVANCED
+}
+
+model Bracket {
+  id        String          @id @default(cuid())
+  category  BracketCategory @unique
+  data      Json
+  updatedAt DateTime        @updatedAt
+}
+
 model Unavailability {
   id        String   @id @default(cuid())
   userId    String

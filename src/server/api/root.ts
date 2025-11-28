@@ -3,15 +3,18 @@ import { rolesRouter } from "rbrgs/server/api/routers/roles";
 import { teamRouter } from "rbrgs/server/api/routers/team";
 import { judgeRouter } from "rbrgs/server/api/routers/judge";
 import { scoreboardRouter } from "./routers/scoreboard";
+import { bracketRouter } from "./routers/bracket";
 import { adminRouter } from "./routers/admin";
 import { configRouter } from "./routers/config";
 import { interviewerRouter } from "./routers/interviewer";
+import { authRouter } from "./routers/auth";
 /**
  * This is the primary router for your server.
  *
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
+  auth: authRouter,
   roles: rolesRouter,
   team: teamRouter,
   judge: judgeRouter,
@@ -19,6 +22,7 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   config: configRouter,
   interviewer: interviewerRouter,
+  bracket: bracketRouter,
 });
 
 // export type definition of API
