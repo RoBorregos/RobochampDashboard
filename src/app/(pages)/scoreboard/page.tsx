@@ -94,12 +94,26 @@ export default function ScoreboardPage() {
         .map((k) => Number(k))
         .filter((n) => !Number.isNaN(n));
       const lastRound = roundKeys.length ? Math.max(...roundKeys) : null;
-      const lastScore =
+      const lastScoreFromRounds =
         lastRound !== null ? extractScore(roundsRaw[String(lastRound)]) : 0;
-      const accumulated = roundKeys.reduce(
-        (sum: number, r: number) => sum + extractScore(roundsRaw[String(r)]),
-        0,
-      );
+      const lastScoreFromServer =
+        typeof teamObj["lastScore"] === "number"
+          ? (teamObj["lastScore"] as number)
+          : undefined;
+      const lastScore = typeof lastScoreFromServer === "number" ? lastScoreFromServer : lastScoreFromRounds;
+      // Prefer the server-provided `total` when available — server already
+      // computes accumulated sums. Fall back to summing rounds client-side.
+      const accumulatedFromServer =
+        typeof teamObj["total"] === "number"
+          ? (teamObj["total"] as number)
+          : undefined;
+      const accumulated =
+        typeof accumulatedFromServer === "number"
+          ? accumulatedFromServer
+          : roundKeys.reduce(
+              (sum: number, r: number) => sum + extractScore(roundsRaw[String(r)]),
+              0,
+            );
 
       return {
         teamId,
@@ -160,7 +174,7 @@ export default function ScoreboardPage() {
                           <td className="p-4 font-medium">{team.teamName}</td>
                           <td className="p-4 text-right">{team.lastScore}</td>
                           <td className="p-4 text-right font-semibold">
-                            {team.accumulated}
+                            {team.total ?? team.accumulated}
                           </td>
                         </tr>
                       ))
@@ -200,7 +214,7 @@ export default function ScoreboardPage() {
                   <td className="p-4 font-medium">{team.teamName}</td>
                   <td className="p-4 text-right">{team.lastScore}</td>
                   <td className="p-4 text-right font-semibold">
-                    {team.accumulated}
+                    {team.total ?? team.accumulated}
                   </td>
                 </tr>
               ))
