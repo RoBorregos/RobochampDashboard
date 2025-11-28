@@ -187,6 +187,8 @@ function GroupBracket({
   onToggleQualified?: (groupId: string, team: string) => void;
   onSelectGroupFinalWinner?: (groupId: string, team: string) => void;
 }) {
+  const isLocked = !!group.finalMatch.winner;
+
   return (
     <div className="relative flex items-center gap-12">
       {/* Team selection column */}
@@ -197,10 +199,11 @@ function GroupBracket({
             name={team}
             isWinner={group.qualified.includes(team)}
             onClick={
-              isAdmin
+              isAdmin && !isLocked
                 ? () => onToggleQualified && onToggleQualified(group.id, team)
                 : undefined
             }
+            disabled={isLocked}
           />
         ))}
       </div>
@@ -211,12 +214,13 @@ function GroupBracket({
           name={group.finalMatch.team1 ?? ""}
           isWinner={group.finalMatch.winner === group.finalMatch.team1}
           onClick={
-            isAdmin && group.finalMatch.team1
+            isAdmin && group.finalMatch.team1 && !isLocked
               ? () =>
                 onSelectGroupFinalWinner &&
                 onSelectGroupFinalWinner(group.id, group.finalMatch.team1!)
               : undefined
           }
+          disabled={isLocked}
         />
         <span className="text-center text-[10px] font-bold text-slate-500">
           VS
@@ -225,12 +229,13 @@ function GroupBracket({
           name={group.finalMatch.team2 ?? ""}
           isWinner={group.finalMatch.winner === group.finalMatch.team2}
           onClick={
-            isAdmin && group.finalMatch.team2
+            isAdmin && group.finalMatch.team2 && !isLocked
               ? () =>
                 onSelectGroupFinalWinner &&
                 onSelectGroupFinalWinner(group.id, group.finalMatch.team2!)
               : undefined
           }
+          disabled={isLocked}
         />
       </div>
     </div>
@@ -496,10 +501,25 @@ export default function BracketsPage() {
     { category: BracketCategory.ADVANCED }
   );
 
-  // Initialize with saved data when loaded
   useEffect(() => {
     if (savedBeginnersData) {
-      setBeginnersData(savedBeginnersData as unknown as BeginnersBracketData);
+      const data = savedBeginnersData as unknown as BeginnersBracketData;
+      const normalizedData = {
+        ...data,
+        groups: data.groups.map((g) => {
+          const qualified = [...g.qualified];
+          if (g.finalMatch.team1 && g.finalMatch.team2) {
+            const team1InQualified = qualified.includes(g.finalMatch.team1);
+            const team2InQualified = qualified.includes(g.finalMatch.team2);
+            if (!team1InQualified || !team2InQualified) {
+              const newQualified = [g.finalMatch.team1, g.finalMatch.team2];
+              return { ...g, qualified: newQualified };
+            }
+          }
+          return g;
+        }),
+      };
+      setBeginnersData(normalizedData);
     }
   }, [savedBeginnersData]);
 
@@ -631,6 +651,9 @@ export default function BracketsPage() {
       const groups = prev.groups.map((g) => {
         if (g.id !== groupId) return g;
 
+        // Don't allow changes if group final winner is already set
+        if (g.finalMatch.winner) return g;
+
         const qualified = [...g.qualified];
         const teamIndex = qualified.indexOf(team);
 
@@ -647,10 +670,14 @@ export default function BracketsPage() {
           if (finalMatch.winner && !qualified.includes(finalMatch.winner)) {
             delete finalMatch.winner;
           }
-        } else {
-          finalMatch.team1 = undefined;
-          finalMatch.team2 = undefined;
-          delete finalMatch.winner;
+        } else if (qualified.length < 2) {
+          // Only clear finalMatch if we don't have 2 qualified teams
+          // This prevents clearing on reload when finalMatch exists
+          if (!finalMatch.team1 || !finalMatch.team2) {
+            finalMatch.team1 = undefined;
+            finalMatch.team2 = undefined;
+            delete finalMatch.winner;
+          }
         }
 
         return { ...g, qualified, finalMatch };
@@ -673,11 +700,13 @@ export default function BracketsPage() {
 
   const handleGroupFinalWinner = (groupId: string, team: string) => {
     setBeginnersData((prev) => {
-      const groups = prev.groups.map((g) =>
-        g.id === groupId
-          ? { ...g, finalMatch: { ...g.finalMatch, winner: team } }
-          : g
-      );
+      const groups = prev.groups.map((g) => {
+        // Don't allow changing winner if already set
+        if (g.id === groupId && !g.finalMatch.winner) {
+          return { ...g, finalMatch: { ...g.finalMatch, winner: team } };
+        }
+        return g;
+      });
 
       // Get group final winners and update main final
       const groupWinners = groups.map((g) => g.finalMatch.winner).filter(Boolean) as string[];
