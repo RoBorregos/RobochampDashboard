@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Control, useForm } from "react-hook-form";
+import { useState } from "react";
 import { z } from "zod";
 
 import { toast } from "sonner";
@@ -21,10 +22,6 @@ import { Input } from "rbrgs/app/_components/shadcn/ui/input";
 import Select from "react-select";
 
 import { api } from "~/trpc/react";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "rbrgs/app/_components/shadcn/ui/radio-group";
 
 type FormData = z.infer<typeof challengeASchema>;
 export type FormControlA = Control<FormData>;
@@ -33,16 +30,24 @@ export const FormChallengeA = () => {
   const form = useForm<FormData>({
     resolver: zodResolver(challengeASchema),
     defaultValues: {
-      flagsAccomplished: 0,
       finishedTrack: false,
+      redCubes: 0,
+      greenCubes: 0,
+      blueCubes: 0,
+      yellowCubes: 0,
+      seesawCrossings: 0,
+      cablesCut: 0,
+      incorrectCut: false,
       genericFormSchema: {
         obtainedBonus: false,
-        roundId: "1",
+        roundTimeSeconds: 0,
       },
     },
   });
 
   const { data: teamIds, isLoading } = api.team.getTeamIds.useQuery();
+
+  const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
 
   const deleteEvaluation = api.judge.roundADelete.useMutation({
     onSuccess() {
@@ -60,9 +65,13 @@ export const FormChallengeA = () => {
         description: <p>Puntos calculados: {data.points}</p>,
         action: {
           label: "Undo",
-          onClick: () => deleteEvaluation.mutate({ id: data.id }),
+          onClick: () => {
+            deleteEvaluation.mutate({ id: data.id });
+            setLastCreatedId(null);
+          },
         },
       });
+      setLastCreatedId(data.id);
     },
     onError(error) {
       toast("Hubo un error al crear la evaluación, checar consola.");
@@ -76,6 +85,19 @@ export const FormChallengeA = () => {
   }));
 
   function onSubmit(data: FormData) {
+    const cubesInDeposit =
+      (data.redCubes ?? 0) +
+      (data.greenCubes ?? 0) +
+      (data.blueCubes ?? 0) +
+      (data.yellowCubes ?? 0);
+
+    if ((data.cablesCut ?? 0) > 0 && cubesInDeposit < 4) {
+      toast(
+        "No se puede calificar la Zona B antes de completar la Zona A (mínimo 4 cubos en depósito).",
+      );
+      return;
+    }
+
     createEvaluation.mutate(data);
     toast("Se ha enviado la evaluación!", {
       description: (
@@ -90,29 +112,20 @@ export const FormChallengeA = () => {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="w-2/3 space-y-6 text-white"
+        className="w-full space-y-4 text-white"
       >
         <FormField
           control={form.control}
-          name="flagsAccomplished"
+          name="finishedTrack"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Flags accomplished</FormLabel>
+              <FormLabel>Finished Track</FormLabel>
               <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  defaultValue={field.value.toString()}
-                  className="flex flex-col"
-                >
-                  {[0, 1, 2, 3, 4].map((value) => (
-                    <FormItem key={value} className="flex items-center gap-3">
-                      <FormControl>
-                        <RadioGroupItem value={value.toString()} />
-                      </FormControl>
-                      <FormLabel className="font-normal">{value}</FormLabel>
-                    </FormItem>
-                  ))}
-                </RadioGroup>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  className="ml-3"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -120,10 +133,90 @@ export const FormChallengeA = () => {
         />
         <FormField
           control={form.control}
-          name="finishedTrack"
+          name="redCubes"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Finished Track</FormLabel>
+              <FormLabel>Red cubes in deposit</FormLabel>
+              <FormControl>
+                <Input type="number" min={0} max={2} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="greenCubes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Green cubes in deposit</FormLabel>
+              <FormControl>
+                <Input type="number" min={0} max={2} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="blueCubes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Blue cubes in deposit</FormLabel>
+              <FormControl>
+                <Input type="number" min={0} max={2} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="yellowCubes"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Yellow cubes in deposit</FormLabel>
+              <FormControl>
+                <Input type="number" min={0} max={1} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="seesawCrossings"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Seesaw crossings</FormLabel>
+              <FormControl>
+                <Input type="number" min={0} max={1} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Zone B scoring inputs */}
+        <FormField
+          control={form.control}
+          name="cablesCut"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Cables cut (0-4)</FormLabel>
+              <FormControl>
+                <Input type="number" min={0} max={4} {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="incorrectCut"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Incorrect cable cut (ended round)</FormLabel>
               <FormControl>
                 <Checkbox
                   checked={field.value}
@@ -162,7 +255,7 @@ export const FormChallengeA = () => {
                 In seconds and without counting calibration time.
               </FormDescription>
               <FormControl>
-                <Input type="number" {...field} />
+                <Input type="number" min={0} max={300} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -178,33 +271,7 @@ export const FormChallengeA = () => {
                 Input -1 if the team didn&apos;t attempt the round.
               </FormDescription>
               <FormControl>
-                <Input type="number" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="genericFormSchema.roundId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Round ID</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  defaultValue={field.value.toString()}
-                  className="flex flex-col"
-                >
-                  {[1, 2, 3].map((value) => (
-                    <FormItem key={value} className="flex items-center gap-3">
-                      <FormControl>
-                        <RadioGroupItem value={value.toString()} />
-                      </FormControl>
-                      <FormLabel className="font-normal">{value}</FormLabel>
-                    </FormItem>
-                  ))}
-                </RadioGroup>
+                <Input type="number" min={-1} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -267,7 +334,25 @@ export const FormChallengeA = () => {
             </FormItem>
           )}
         />
-        <Button type="submit">Submit</Button>
+        <div className="flex items-center gap-3">
+          <Button type="submit">Submit</Button>
+          {lastCreatedId && (
+            <Button
+              variant="destructive"
+              type="button"
+              onClick={() => {
+                deleteEvaluation.mutate({ id: lastCreatedId }, {
+                  onSuccess() {
+                    toast('Se deshizo el último resultado.');
+                    setLastCreatedId(null);
+                  },
+                });
+              }}
+            >
+              Undo last
+            </Button>
+          )}
+        </div>
       </form>
     </Form>
   );
