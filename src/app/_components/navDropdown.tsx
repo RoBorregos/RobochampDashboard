@@ -34,13 +34,8 @@ export default function NavDropdown({ session }: { session: Session | null }) {
             </Link>
           </SheetClose>
           <SheetClose asChild>
-            <Link href="/schedule" className="w-full text-lg">
-              Schedule
-            </Link>
-          </SheetClose>
-          <SheetClose asChild>
-            <Link href="/team" className="w-full text-lg">
-              Team
+            <Link href="brackets" className="w-full text-lg">
+              Brackets
             </Link>
           </SheetClose>
           {(session?.user.role === Role.ADMIN ||
@@ -58,11 +53,6 @@ export default function NavDropdown({ session }: { session: Session | null }) {
               </Link>
             </SheetClose>
           )}
-          <SheetClose asChild>
-            <Link href="/editions" className="w-full text-lg">
-              Past Editions
-            </Link>
-          </SheetClose>
           <SheetClose asChild>
             <Link href="https://www.roborregos.com" className="w-full text-lg">
               About Us
