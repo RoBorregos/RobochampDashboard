@@ -12,7 +12,7 @@ export default async function Countdown() {
         <section className="relative flex min-h-[100vw] flex-col overflow-hidden lg:min-h-screen">
           <div className="z-10 mt-[45vw] text-center lg:mt-32">
             <h1 className="font-jersey_25 text-[13vw] leading-none text-roboblue lg:text-[12vw]">
-              CANDIDATES
+              ROBOCHAMP
             </h1>
             <p className="mt-[-2vw] font-anton text-[6vw] text-white lg:text-[3vw]">
               By RoBorregos
