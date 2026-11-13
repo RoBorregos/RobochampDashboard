@@ -22,6 +22,16 @@ import { Input } from "rbrgs/app/_components/shadcn/ui/input";
 import Select from "react-select";
 
 import { api } from "~/trpc/react";
+import { CounterButton, ToggleButton } from "./ScoreButtons";
+
+const COUNTERS = [
+  { name: "redCubes", label: "Red cubes in deposit", max: 2, points: 10 },
+  { name: "greenCubes", label: "Green cubes in deposit", max: 2, points: 10 },
+  { name: "blueCubes", label: "Blue cubes in deposit", max: 2, points: 10 },
+  { name: "yellowCubes", label: "Yellow cubes in deposit", max: 1, points: 35 },
+  { name: "seesawCrossings", label: "Seesaw crossings", max: 1, points: 25 },
+  { name: "cablesCut", label: "Cables cut (Zone B)", max: 4, points: 20 },
+] as const;
 
 type FormData = z.infer<typeof challengeASchema>;
 export type FormControlA = Control<FormData>;
@@ -44,6 +54,8 @@ export const FormChallengeA = () => {
       },
     },
   });
+
+  const values = form.watch();
 
   const { data: teamIds, isLoading } = api.team.getTeamIds.useQuery();
 
@@ -131,103 +143,25 @@ export const FormChallengeA = () => {
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="redCubes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Red cubes in deposit</FormLabel>
-              <FormControl>
-                <Input type="number" min={0} max={2} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="greenCubes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Green cubes in deposit</FormLabel>
-              <FormControl>
-                <Input type="number" min={0} max={2} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="blueCubes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Blue cubes in deposit</FormLabel>
-              <FormControl>
-                <Input type="number" min={0} max={2} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="yellowCubes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Yellow cubes in deposit</FormLabel>
-              <FormControl>
-                <Input type="number" min={0} max={1} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="seesawCrossings"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Seesaw crossings</FormLabel>
-              <FormControl>
-                <Input type="number" min={0} max={1} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          {COUNTERS.map(({ name, label, max, points }) => (
+            <CounterButton
+              key={name}
+              label={label}
+              count={Number(values[name] ?? 0)}
+              max={max}
+              points={points}
+              onChange={(count) => form.setValue(name, count)}
+            />
+          ))}
+        </div>
+        <ToggleButton
+          label="Incorrect cable cut (ended round)"
+          points={0}
+          checked={values.incorrectCut ?? false}
+          onChange={(checked) => form.setValue("incorrectCut", checked)}
         />
 
-        {/* Zone B scoring inputs */}
-        <FormField
-          control={form.control}
-          name="cablesCut"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Cables cut (0-4)</FormLabel>
-              <FormControl>
-                <Input type="number" min={0} max={4} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="incorrectCut"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Incorrect cable cut (ended round)</FormLabel>
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  className="ml-3"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
         <FormField
           control={form.control}
           name="genericFormSchema.obtainedBonus"
