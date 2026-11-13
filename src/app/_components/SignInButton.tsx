@@ -20,12 +20,13 @@ export default function SignInButton({ session }: { session: Session | null }) {
   if (!session) {
     return (
       <div className="flex items-center justify-end">
-        <p
+        <button
+          type="button"
           className="w-fit cursor-pointer rounded-md p-2 px-6 text-xl font-semibold text-white transition duration-300 hover:bg-slate-100 hover:bg-opacity-10"
           onClick={() => signIn("google")}
         >
           Log in
-        </p>
+        </button>
       </div>
     );
   }
@@ -61,12 +62,13 @@ export default function SignInButton({ session }: { session: Session | null }) {
                       Account
                     </div>
                   </Link>
-                  <div
-                    className="cursor-pointer rounded-md p-2 px-6 text-sm text-white hover:bg-slate-100 hover:bg-opacity-10"
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer rounded-md p-2 px-6 text-left text-sm text-white hover:bg-slate-100 hover:bg-opacity-10"
                     onClick={() => signOut()}
                   >
                     Log out
-                  </div>
+                  </button>
                 </div>
               </NavigationMenuLink>
             </NavigationMenuContent>
