@@ -17,6 +17,7 @@ type TeamDisplay = {
   name: string;
   _count: { members: number };
   members: UserDisplay[];
+  roster?: { id: string; name: string }[];
 };
 
 interface PendingRequest {
@@ -54,6 +55,28 @@ export default function TeamManagement({
       console.error(error);
     },
   });
+
+  const importCsv = api.admin.importSelectionCsv.useMutation({
+    onSuccess(r) {
+      toast(`Imported ${r.teams} teams and ${r.members} members.`);
+      refetchAll();
+    },
+    onError(error) {
+      toast(`Import failed: ${error.message}`);
+    },
+  });
+
+  // Excel saves this CSV as Windows-1252, so fall back when it is not UTF-8.
+  const handleCsvFile = async (file: File) => {
+    const buffer = await file.arrayBuffer();
+    let text: string;
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    } catch {
+      text = new TextDecoder("windows-1252").decode(buffer);
+    }
+    importCsv.mutate({ csv: text });
+  };
 
   const removeUser = api.admin.removeUserFromTeam.useMutation({
     onSuccess() {
@@ -227,6 +250,25 @@ export default function TeamManagement({
       </div>
 
       <div className="rounded-lg bg-gray-800 p-6">
+        <h3 className="mb-2 text-xl font-semibold">Import Selection CSV</h3>
+        <p className="mb-4 text-sm text-gray-400">
+          Replaces the current roster. Columns: Nombre completo, Equipo,
+          Categoría, Coach, Prepa, Asistió.
+        </p>
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          disabled={importCsv.isPending}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleCsvFile(file);
+            e.target.value = "";
+          }}
+          className="text-sm"
+        />
+      </div>
+
+      <div className="rounded-lg bg-gray-800 p-6">
         <h3 className="mb-4 text-xl font-semibold">Users Without Teams</h3>
         <div className="space-y-3">
           {users
@@ -287,8 +329,10 @@ export default function TeamManagement({
             <div key={team.id} className="rounded bg-gray-700 p-4">
               <h4 className="mb-2 font-semibold">{team.name}</h4>
               <p className="mb-2 text-sm text-gray-400">
-                Members: {team._count?.members ?? 0} / 4
-                {team._count?.members >= 4 ? " - Full" : ""}
+                Members: {(team._count?.members ?? 0) + (team.roster?.length ?? 0)} / 4
+                {(team._count?.members ?? 0) + (team.roster?.length ?? 0) >= 4
+                  ? " - Full"
+                  : ""}
               </p>
               <div className="space-y-2">
                 {team.members?.map((member) => (
@@ -318,7 +362,15 @@ export default function TeamManagement({
                     </button>
                   </div>
                 ))}
-                {(!team.members || team.members.length === 0) && (
+                {team.roster?.map((person) => (
+                  <div
+                    key={person.id}
+                    className="rounded bg-gray-600 p-2 text-sm font-medium"
+                  >
+                    {person.name}
+                  </div>
+                ))}
+                {!team.members?.length && !team.roster?.length && (
                   <p className="text-sm italic text-gray-500">No members</p>
                 )}
               </div>
