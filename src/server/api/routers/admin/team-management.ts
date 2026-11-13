@@ -11,8 +11,8 @@ const col = (r: Record<string, string>, prefix: string) =>
     .replace(/\s+/g, " ");
 
 const categoryOf = (value: string) => {
-  if (/A \(/.test(value)) return BracketCategory.BEGINNERS;
-  if (/B \(/.test(value)) return BracketCategory.ADVANCED;
+  if (value.includes("A (")) return BracketCategory.BEGINNERS;
+  if (value.includes("B (")) return BracketCategory.ADVANCED;
   throw new Error(`Unknown category: "${value}"`);
 };
 
