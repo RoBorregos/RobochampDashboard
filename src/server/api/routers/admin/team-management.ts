@@ -61,31 +61,56 @@ export const teamManagementRouter = createTRPCRouter({
         },
       }));
 
-      // Many round trips to a remote DB: Prisma's 5s default would roll it back.
+      // The engine talks to a remote DB, so cost is the number of queries:
+      // this is a fixed handful instead of two per team.
       await ctx.db.$transaction(
         async (tx) => {
           await tx.rosterMember.deleteMany();
-          for (const t of data) {
-            const team = await tx.team.upsert({
-              where: { name: t.name },
-              create: { name: t.name, ...t.fields },
-              update: t.fields,
-            });
-            await tx.rosterMember.createMany({
-              data: t.members.map((m) => ({
-                teamId: team.id,
+          await tx.team.createMany({
+            data: data.map((t) => ({ name: t.name, ...t.fields })),
+            skipDuplicates: true,
+          });
+          const teams = await tx.team.findMany({
+            where: { name: { in: data.map((t) => t.name) } },
+          });
+          const idByName = new Map(teams.map((t) => [t.name, t.id]));
+
+          // Teams that already existed keep their rows; refresh their details.
+          await Promise.all(
+            data.flatMap((t) => {
+              const existing = teams.find((e) => e.name === t.name)!;
+              const same =
+                existing.category === t.fields.category &&
+                existing.coach === t.fields.coach &&
+                existing.school === t.fields.school;
+              return same
+                ? []
+                : [tx.team.update({ where: { id: existing.id }, data: t.fields })];
+            }),
+          );
+
+          await tx.rosterMember.createMany({
+            data: data.flatMap((t) =>
+              t.members.map((m) => ({
+                teamId: idByName.get(t.name)!,
                 name: col(m, "Nombre"),
                 attended: col(m, "Asisti").toUpperCase() === "TRUE",
               })),
-              skipDuplicates: true,
-            });
-          }
+            ),
+            skipDuplicates: true,
+          });
         },
         { timeout: 60_000 },
       );
 
       return { teams: data.length, members: rows.length };
     }),
+
+  // Cascades: also deletes the teams' rounds and scores, and unassigns users.
+  deleteAllTeams: adminProcedure.mutation(async ({ ctx }) => {
+    const { count } = await ctx.db.team.deleteMany();
+    return { count };
+  }),
 
   createTeam: adminProcedure
     .input(

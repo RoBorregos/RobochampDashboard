@@ -66,6 +66,16 @@ export default function TeamManagement({
     },
   });
 
+  const deleteAllTeams = api.admin.deleteAllTeams.useMutation({
+    onSuccess(r) {
+      toast(`Removed ${r.count} teams.`);
+      refetchAll();
+    },
+    onError(error) {
+      toast(`Could not remove teams: ${error.message}`);
+    },
+  });
+
   // Excel saves this CSV as Windows-1252, so fall back when it is not UTF-8.
   const handleCsvFile = async (file: File) => {
     const buffer = await file.arrayBuffer();
@@ -266,6 +276,20 @@ export default function TeamManagement({
           }}
           className="text-sm"
         />
+        <button
+          onClick={() => {
+            if (
+              window.confirm(
+                "Remove ALL teams? This also deletes their rounds and scores and unassigns every user. This cannot be undone.",
+              )
+            )
+              deleteAllTeams.mutate();
+          }}
+          disabled={deleteAllTeams.isPending}
+          className="ml-4 rounded bg-red-600 px-4 py-2 text-sm hover:bg-red-700 disabled:opacity-50"
+        >
+          {deleteAllTeams.isPending ? "Removing..." : "Remove All Teams"}
+        </button>
       </div>
 
       <div className="rounded-lg bg-gray-800 p-6">

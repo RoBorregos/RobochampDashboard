@@ -18,6 +18,8 @@ export const adminRouter = createTRPCRouter({
   // Team Management
   getAllTeams: teamManagementRouter.getAllTeams,
   createTeam: teamManagementRouter.createTeam,
+  importSelectionCsv: teamManagementRouter.importSelectionCsv,
+  deleteAllTeams: teamManagementRouter.deleteAllTeams,
   getTeams: teamManagementRouter.getTeams,
   toggleTeamStatus: teamManagementRouter.toggleTeamStatus,
 
