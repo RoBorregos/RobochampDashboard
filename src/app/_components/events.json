@@ -1,14 +1,82 @@
-{ "eventSections": [
-    { "title": "Registration beginners", "time": "8:30 AM" },
-    { "title": "Workshops start", "time": "9:00 AM" },
-    { "title": "Registration advanced", "time": "9:30 AM" },
-    { "title": "Rulebook revision", "time": "10:00 AM" },
-    { "title": "Inaguration", "time": "10:30 AM" },
-    { "title": "Round 1 - advanced", "time": "11:00 AM" },
-    { "title": "Round 1 - beginners", "time": "12:05 PM" },
-    { "title": "Food", "time": "1:00 PM" },
-    { "title": "Round 2", "time": "2:35 PM" },
-    { "title": "Round 3 - beginners", "time": "3:15 PM"},
-    { "title": "Final round", "time": "3:35 PM" },
-    { "title": "Award ceremony", "time": "4:00 PM" }
-] }
+{
+  "agenda": [
+    {
+      "time": "9:00 – 9:30",
+      "activity": "Registration and kick off",
+      "category": "Both",
+      "duration": "30 min"
+    },
+    {
+      "time": "9:30 – 11:10",
+      "activity": "Round 1",
+      "category": "Advanced",
+      "duration": "100 min"
+    },
+    {
+      "time": "9:30 – 12:20",
+      "activity": "Robot building workshop",
+      "category": "Beginners",
+      "duration": "165 min"
+    },
+    {
+      "time": "11:10 – 12:50",
+      "activity": "Round 2",
+      "category": "Advanced",
+      "duration": "100 min"
+    },
+    {
+      "time": "12:50 – 13:50",
+      "activity": "Lunch",
+      "category": "Both",
+      "duration": "60 min"
+    },
+    {
+      "time": "13:50 – 14:20",
+      "activity": "Calibration",
+      "category": "Beginners",
+      "duration": "30 min"
+    },
+    {
+      "time": "14:20 – 16:00",
+      "activity": "Round 1",
+      "category": "Beginners",
+      "duration": "100 min"
+    },
+    {
+      "time": "16:00 – 17:40",
+      "activity": "Round 2",
+      "category": "Beginners",
+      "duration": "100 min"
+    },
+    {
+      "time": "17:40 – 18:00",
+      "activity": "Break",
+      "category": "Beginners",
+      "duration": "20 min"
+    },
+    {
+      "time": "17:40 – 18:00",
+      "activity": "Final",
+      "category": "Advanced",
+      "duration": "20 min"
+    },
+    {
+      "time": "18:00 – 18:20",
+      "activity": "Final",
+      "category": "Beginners",
+      "duration": "20 min"
+    },
+    {
+      "time": "18:20 – 18:30",
+      "activity": "Deliberation",
+      "category": "Both",
+      "duration": "10 min"
+    },
+    {
+      "time": "18:30 – 19:10",
+      "activity": "Awards and closing",
+      "category": "Both",
+      "duration": "40 min"
+    }
+  ]
+}
