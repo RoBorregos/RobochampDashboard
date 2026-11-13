@@ -1,216 +1,220 @@
 "use client";
 
-import Header from "~/app/_components/header";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "~/trpc/react";
+import Footer from "~/app/_components/footer";
 import LogoLoader from "~/app/_components/logo-loader";
 
-type ScheduleChallenge = {
-  name: string;
-  time: string | Date;
-};
+const STATUS = {
+  ON_TIME: { label: "ON TIME", cls: "text-green-400" },
+  DELAYED: { label: "DELAYED", cls: "text-red-500" },
+  IN_PREPARATION: { label: "IN PREPARATION", cls: "text-amber-300" },
+  IN_CALIBRATION: { label: "IN CALIBRATION", cls: "text-sky-300" },
+  IN_ROUND: { label: "IN ROUND", cls: "text-green-300 animate-pulse" },
+  FINALIZED: { label: "FINALIZED", cls: "text-gray-500" },
+  CANCELLED: { label: "CANCELLED", cls: "text-red-500 line-through" },
+} as const;
+type Status = keyof typeof STATUS;
 
-type ScheduleRound = {
-  number: number;
-  challenges: ScheduleChallenge[];
-};
+const hhmm = (d: Date | string | number) =>
+  new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
-type ScheduleTeam = {
-  id?: string;
-  name: string;
-  rounds: ScheduleRound[];
-};
+const STAR_KEY = "schedule-starred-teams";
+const COLS = "grid grid-cols-[5.5rem_4rem_1fr_3rem_11rem_4rem_2rem] items-center gap-x-3";
 
-type Cell = { A?: string; B?: string; C?: string };
-type RoundBucket = { times: Set<string>; rows: Record<string, Cell> };
+// Own component so the 1s tick doesn't re-render the table.
+function Clock() {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <span className="tabular-nums">
+      {now === null ? "--:--:--" : new Date(now).toLocaleTimeString("en-GB")}
+    </span>
+  );
+}
+
+// Dim leading zeros, bright significant digits — the everyuuid index look.
+function Index({ n }: { n: number }) {
+  const s = String(n).padStart(6, "0");
+  const lead = /^0*/.exec(s)?.[0] ?? "";
+  return (
+    <span className="select-none">
+      <span className="text-gray-700">{lead}</span>
+      <span className="text-gray-400">{s.slice(lead.length)}</span>
+    </span>
+  );
+}
 
 export default function SchedulePage() {
-  const query = api.team.getVisibleSchedules.useQuery();
-  const isArray = Array.isArray(query.data);
-  const teams: ScheduleTeam[] = isArray ? (query.data as ScheduleTeam[]) : [];
-  const { isLoading } = query;
+  const utils = api.useUtils();
+  // Polling pauses in background tabs (react-query default); the server
+  // answers from a 5s cache, so viewers don't multiply DB reads.
+  const { data, isLoading } = api.schedule.board.useQuery(undefined, {
+    refetchInterval: 10_000,
+  });
+  const setStatus = api.schedule.setStatus.useMutation({
+    onSuccess: () => utils.schedule.board.invalidate(),
+  });
 
-  /** Rondas reveladas = cantidad de números de ronda únicos presentes */
-  const roundsRevealed =
-    teams.length > 0
-      ? new Set(teams.flatMap((t) => (t.rounds ?? []).map((r) => r.number)))
-          .size
-      : 0;
+  const [q, setQ] = useState("");
+  const [onlyStarred, setOnlyStarred] = useState(false);
+  const [stars, setStars] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      setStars(new Set(JSON.parse(localStorage.getItem(STAR_KEY) ?? "[]") as string[]));
+    } catch {}
+  }, []);
+
+  const toggleStar = (team: string) =>
+    setStars((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(team)) next.add(team);
+      try {
+        localStorage.setItem(STAR_KEY, JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+
+  const all = useMemo(() => data?.rows ?? [], [data]);
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return all.filter(
+      (r) =>
+        (!needle || r.team.toLowerCase().includes(needle)) &&
+        (!onlyStarred || stars.has(r.team)),
+    );
+  }, [all, q, onlyStarred, stars]);
+
+  // First run that isn't over yet = "now" on the board.
+  const nextId = all.find((r) => r.status !== "FINALIZED" && r.status !== "CANCELLED")?.id;
 
   if (isLoading) return <LogoLoader />;
 
-  if (teams.length === 0) {
-    return (
-      <main className="mt-[4rem] min-h-screen bg-black text-white">
-        <div className="md:pb-10">
-          <Header title="Schedules" subtitle="No schedules available yet" />
-        </div>
-        <div className="flex h-64 items-center justify-center">
-          <div className="text-center">
-            <p className="text-xl text-gray-400">
-              Schedules will be revealed soon
-            </p>
-            <p className="mt-2 text-sm text-gray-500">
-              Rounds revealed: {roundsRevealed}/3
-            </p>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  const toDate = (d: Date | string): Date =>
-    d instanceof Date ? d : new Date(d);
-  const toTimeKey = (d: Date): string => {
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    return `${hh}:${mm}`;
-  };
-  const getTrackFromName = (name: string): "A" | "B" | "C" | null => {
-    const n = name.toLowerCase();
-    if (n.includes("pista a") || n.includes("track a")) return "A";
-    if (n.includes("pista b") || n.includes("track b")) return "B";
-    if (n.includes("pista c") || n.includes("track c")) return "C";
-    return null;
-  };
-
-  const roundBuckets: Record<number, RoundBucket> = {};
-
-  for (const team of teams) {
-    for (const round of team.rounds ?? []) {
-      if (round.number > roundsRevealed) continue;
-
-      const rn = Number(round.number);
-      const bucket = (roundBuckets[rn] ??= {
-        times: new Set<string>(),
-        rows: {},
-      });
-
-      for (const ch of round.challenges ?? []) {
-        const track = getTrackFromName(ch.name);
-        if (!track) continue;
-
-        const tKey = toTimeKey(toDate(ch.time));
-        bucket.times.add(tKey);
-
-        const row = (bucket.rows[tKey] ??= {});
-        if (track === "A") row.A = team.name ?? "";
-        else if (track === "B") row.B = team.name ?? "";
-        else row.C = team.name ?? "";
-      }
-    }
-  }
-
-  const rounds = Object.keys(roundBuckets)
-    .map((k) => Number(k))
-    .sort((a, b) => a - b);
+  const btn =
+    "rounded border border-gray-700 px-3 py-1 text-sm text-white hover:border-roboblue hover:text-roboblue";
 
   return (
-    <main className="mt-[4rem] min-h-screen bg-black text-white">
-      <div className="md:pb-10">
-        <Header
-          title="Competition Schedules"
-          subtitle={`Rounds revealed: ${roundsRevealed}/3`}
-        />
-      </div>
-
-      <div className="container mx-auto px-2 py-6 sm:px-4 sm:py-8">
-        {rounds.length > 0 ? (
-          rounds.map((round) => {
-            const bucket = roundBuckets[round];
-            if (!bucket) return null;
-
-            const times = Array.from(bucket.times).sort((a, b) =>
-              a.localeCompare(b),
-            );
-
-            return (
-              <div key={round} className="mb-12">
-                <div className="mb-3 rounded-lg bg-gradient-to-r from-roboblue to-blue-600 p-4">
-                  <h2 className="text-center text-2xl font-bold">
-                    Round {round}
-                  </h2>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full table-fixed overflow-hidden rounded-lg bg-gray-900 text-xs sm:text-base">
-                    <thead>
-                      <tr className="bg-gray-800">
-                        <th className="w-14 p-2 text-left font-semibold sm:w-auto sm:p-4">Time</th>
-                        <th className="p-2 text-left font-semibold sm:p-4">Track A</th>
-                        <th className="p-2 text-left font-semibold sm:p-4">Track B</th>
-                        <th className="p-2 text-left font-semibold sm:p-4">Track C</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {times.map((t, idx) => {
-                        const cell = bucket.rows[t] ?? {};
-                        return (
-                          <tr
-                            key={`${round}-${t}`}
-                            className={`border-b border-gray-700 ${
-                              idx % 2 === 0 ? "bg-gray-800" : "bg-gray-900"
-                            } transition-colors hover:bg-gray-700`}
-                          >
-                            <td className="p-2 font-mono font-medium sm:p-4">{t}</td>
-                            <td className="break-words p-2 sm:p-4">
-                              {cell.A ?? (
-                                <span className="text-gray-500">-</span>
-                              )}
-                            </td>
-                            <td className="break-words p-2 sm:p-4">
-                              {cell.B ?? (
-                                <span className="text-gray-500">-</span>
-                              )}
-                            </td>
-                            <td className="break-words p-2 sm:p-4">
-                              {cell.C ?? (
-                                <span className="text-gray-500">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="py-12 text-center">
-            <h3 className="mb-2 text-xl font-semibold">No rounds available</h3>
-            <p className="text-gray-400">
-              Schedules will be published as the competition progresses
+    <div className="mt-[4rem] min-h-screen bg-black text-white">
+      {/* sticky one-line header, like everyuuid */}
+      <div className="sticky top-[4rem] z-40 border-b border-roboblue bg-black/95 px-4 py-2 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-2">
+          <div>
+            <h1 className="font-jersey_25 text-3xl leading-none text-roboblue md:text-4xl">
+              Schedule
+            </h1>
+            <p className="font-mono text-xs text-gray-400">
+              Scroll till you find your team
             </p>
           </div>
-        )}
-
-        <div className="mt-8 rounded-lg bg-gray-900 p-6">
-          <h3 className="mb-4 text-lg font-semibold text-roboblue">
-            Important Information
-          </h3>
-          <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-            <div>
-              <h4 className="mb-2 font-semibold text-white">Event Format:</h4>
-              <ul className="space-y-1 text-gray-300">
-                <li>3 competition rounds</li>
-                <li>3 tracks per round (A, B, C)</li>
-                <li>Each team goes through all 3 tracks</li>
-                <li>5 minutes per track</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="mb-2 font-semibold text-white">Instructions:</h4>
-              <ul className="space-y-1 text-gray-300">
-                <li>Arrive 5 minutes before your scheduled time</li>
-                <li>Schedules may be adjusted based on availability</li>
-                <li>Only currently available rounds are shown</li>
-                <li>Check regularly for updates</li>
-              </ul>
-            </div>
+          <div className="flex flex-wrap items-center gap-2 font-mono">
+            <span className="mr-2 text-lg text-roboblue md:text-xl">
+              <Clock />
+            </span>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="search team"
+              className="w-36 rounded border border-gray-700 bg-black px-3 py-1 text-sm placeholder:text-gray-600 focus:border-roboblue focus:outline-none"
+            />
+            <button
+              onClick={() => setOnlyStarred((v) => !v)}
+              className={`${btn} ${onlyStarred ? "border-roboblue text-roboblue" : ""}`}
+              aria-pressed={onlyStarred}
+            >
+              ★ starred
+            </button>
+            {nextId && (
+              <button
+                onClick={() =>
+                  document
+                    .getElementById(`run-${nextId}`)
+                    ?.scrollIntoView({ block: "center", behavior: "smooth" })
+                }
+                className={btn}
+              >
+                now
+              </button>
+            )}
           </div>
         </div>
       </div>
-    </main>
+
+      <div className="overflow-x-auto px-4">
+        <div className="mx-auto min-w-[44rem] max-w-7xl font-mono text-sm md:text-base">
+          <div
+            className={`${COLS} border-b border-gray-700 py-2 text-xs tracking-widest text-gray-500`}
+          >
+            <span>#</span>
+            <span>TIME</span>
+            <span>TEAM</span>
+            <span>TRK</span>
+            <span>STATUS</span>
+            <span className="text-right">PTS</span>
+            <span />
+          </div>
+
+          {rows.map((r, i) => {
+            const s = STATUS[r.status as Status];
+            const starred = stars.has(r.team);
+            return (
+              <div
+                key={r.id}
+                id={`run-${r.id}`}
+                className={`${COLS} scroll-mt-40 border-b border-gray-800 py-1.5 transition-colors hover:bg-gray-900 ${
+                  r.id === nextId ? "bg-roboblue/10 shadow-[inset_3px_0_0_0_#0A38EF]" : ""
+                }`}
+              >
+                <Index n={i + 1} />
+                <span className="text-white">{hhmm(r.time)}</span>
+                <span className="truncate uppercase">{r.team}</span>
+                <span className="text-roboblue">{r.track}</span>
+                <span className={s.cls}>
+                  {data?.canEdit ? (
+                    <select
+                      value={r.status}
+                      disabled={setStatus.isPending}
+                      onChange={(e) =>
+                        setStatus.mutate({ id: r.id, status: e.target.value as Status })
+                      }
+                      className="w-full rounded border border-gray-700 bg-black text-inherit"
+                    >
+                      {Object.entries(STATUS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    s.label
+                  )}
+                </span>
+                <span className="text-right tabular-nums">{r.points ?? "—"}</span>
+                <button
+                  onClick={() => toggleStar(r.team)}
+                  aria-label={`${starred ? "Unstar" : "Star"} ${r.team}`}
+                  aria-pressed={starred}
+                  className={starred ? "text-amber-300" : "text-gray-600 hover:text-amber-300"}
+                >
+                  {starred ? "★" : "☆"}
+                </button>
+              </div>
+            );
+          })}
+
+          {rows.length === 0 && (
+            <p className="py-16 text-center text-gray-500">
+              {all.length === 0 ? "NO RUNS SCHEDULED — CHECK BACK SOON" : "NO MATCHES"}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <Footer />
+    </div>
   );
 }

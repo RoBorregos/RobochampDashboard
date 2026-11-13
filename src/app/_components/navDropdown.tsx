@@ -35,6 +35,11 @@ export default function NavDropdown({ session }: { session: Session | null }) {
             </Link>
           </SheetClose>
           <SheetClose asChild>
+            <Link href="/schedule" className="w-full text-lg">
+              Schedule
+            </Link>
+          </SheetClose>
+          <SheetClose asChild>
             <Link href="brackets" className="w-full text-lg">
               Brackets
             </Link>
