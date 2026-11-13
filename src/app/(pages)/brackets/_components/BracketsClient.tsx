@@ -709,7 +709,7 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
             <button
               key={cat}
               onClick={() => setCategory(cat)}
-              className={`rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-300 ${category === cat ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" : "text-slate-500 hover:bg-white/5 hover:text-white"} `}
+              className={`rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-300 md:px-8 md:py-3 md:text-sm ${category === cat ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" : "text-slate-500 hover:bg-white/5 hover:text-white"} `}
             >
               {cat}
             </button>
