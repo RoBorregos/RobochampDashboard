@@ -113,7 +113,7 @@ export default function SchedulePage() {
         />
       </div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-2 py-6 sm:px-4 sm:py-8">
         {rounds.length > 0 ? (
           rounds.map((round) => {
             const bucket = roundBuckets[round];
@@ -132,13 +132,13 @@ export default function SchedulePage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full overflow-hidden rounded-lg bg-gray-900">
+                  <table className="w-full table-fixed overflow-hidden rounded-lg bg-gray-900 text-xs sm:text-base">
                     <thead>
                       <tr className="bg-gray-800">
-                        <th className="p-4 text-left font-semibold">Time</th>
-                        <th className="p-4 text-left font-semibold">Track A</th>
-                        <th className="p-4 text-left font-semibold">Track B</th>
-                        <th className="p-4 text-left font-semibold">Track C</th>
+                        <th className="w-14 p-2 text-left font-semibold sm:w-auto sm:p-4">Time</th>
+                        <th className="p-2 text-left font-semibold sm:p-4">Track A</th>
+                        <th className="p-2 text-left font-semibold sm:p-4">Track B</th>
+                        <th className="p-2 text-left font-semibold sm:p-4">Track C</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -151,18 +151,18 @@ export default function SchedulePage() {
                               idx % 2 === 0 ? "bg-gray-800" : "bg-gray-900"
                             } transition-colors hover:bg-gray-700`}
                           >
-                            <td className="p-4 font-mono font-medium">{t}</td>
-                            <td className="p-4">
+                            <td className="p-2 font-mono font-medium sm:p-4">{t}</td>
+                            <td className="break-words p-2 sm:p-4">
                               {cell.A ?? (
                                 <span className="text-gray-500">-</span>
                               )}
                             </td>
-                            <td className="p-4">
+                            <td className="break-words p-2 sm:p-4">
                               {cell.B ?? (
                                 <span className="text-gray-500">-</span>
                               )}
                             </td>
-                            <td className="p-4">
+                            <td className="break-words p-2 sm:p-4">
                               {cell.C ?? (
                                 <span className="text-gray-500">-</span>
                               )}

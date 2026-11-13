@@ -110,13 +110,13 @@ function TeamPill({
       type="button"
       disabled={!clickable}
       onClick={clickable ? onClick : undefined}
-      className={`relative flex select-none items-center justify-center ${small ? "h-10 w-32 text-xs" : "h-14 w-48 md:h-16 md:w-56"} rounded-2xl border transition-all duration-300 ${
+      className={`relative flex select-none items-center justify-center ${small ? "h-10 w-32 text-xs" : "h-12 w-28 text-xs md:h-16 md:w-56 md:text-base"} rounded-2xl border transition-all duration-300 ${
         isWinner || variant === "blue"
           ? "z-10 scale-105 border-blue-400 bg-blue-600 font-bold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]"
           : "border-[#333] bg-[#1a1a1a] text-slate-400"
       } ${clickable && !(isWinner || variant === "blue") ? "cursor-pointer hover:border-blue-400 hover:shadow-[0_0_8px_rgba(59,130,246,0.4)]" : ""} ${!clickable ? "opacity-60" : ""} `}
     >
-      <span className="truncate px-4">{name ?? ""}</span>
+      <span className="truncate px-2 md:px-4">{name ?? ""}</span>
     </button>
   );
 }
@@ -160,7 +160,7 @@ function GroupBracket({
   const isLocked = !!group.finalMatch.winner;
 
   return (
-    <div className="relative flex items-center gap-12">
+    <div className="relative flex items-center gap-4 md:gap-12">
       {/* Team selection column */}
       <div className="flex flex-col gap-3">
         {group.teams.map((team) => (
@@ -226,10 +226,10 @@ function BeginnersLayout({
   onSelectGroupFinalWinner?: (groupId: string, team: string) => void;
 }) {
   return (
-    <div className="flex w-full flex-col items-center gap-20 px-4 pb-12">
-      <div className="flex w-full max-w-7xl flex-col gap-20 md:flex-row md:items-start md:justify-center">
+    <div className="flex w-full flex-col items-center gap-10 px-2 pb-12 md:gap-20 md:px-4">
+      <div className="flex w-full max-w-7xl flex-col items-center gap-10 md:gap-20 md:flex-row md:items-start md:justify-center">
         {/* Left: Groups stacked vertically */}
-        <div className="flex flex-col gap-14">
+        <div className="flex flex-col gap-8 md:gap-14">
           {data.groups.map((g) => (
             <GroupBracket
               key={g.id}
@@ -244,7 +244,7 @@ function BeginnersLayout({
         {/* Right column: Final + Third Place stacked */}
         <div className="flex flex-col items-center gap-10">
           {/* Final card with winner to the right */}
-          <div className="relative flex items-center gap-8">
+          <div className="relative flex items-center gap-4 md:gap-8">
             <div className="flex flex-col items-center gap-2">
               <h3 className="text-xs font-bold uppercase tracking-widest text-blue-400">
                 Final
@@ -332,14 +332,14 @@ function AdvancedLayout({
   if (!quarterfinals || !semifinals) return null;
 
   return (
-    <div className="flex w-full max-w-7xl flex-row items-start justify-center gap-12">
+    <div className="flex w-full max-w-7xl flex-col items-center gap-10 md:flex-row md:items-start md:justify-center md:gap-12">
       {/* Left: Quarter -> Semifinal chains */}
       <div className="flex flex-col gap-8">
         {quarterfinals.matches.slice(0, 3).map((qMatch, idx) => {
           const semiMatch = semifinals.matches[idx];
           const semiWinner = semiMatch?.winner ?? semiMatch?.team1 ?? undefined;
           return (
-            <div key={qMatch.id} className="relative flex items-center gap-16">
+            <div key={qMatch.id} className="relative flex items-center gap-6 md:gap-16">
               {/* Quarter block */}
               <div className="relative">
                 <MatchNode
@@ -376,7 +376,7 @@ function AdvancedLayout({
       {/* Final & Third Place column */}
       <div className="relative flex flex-col items-center gap-12 pt-4">
         {/* Final card with winner to the right */}
-        <div className="relative flex items-center gap-8">
+        <div className="relative flex items-center gap-4 md:gap-8">
           <div className="flex flex-col items-center gap-2">
             <h3 className="text-xs font-bold uppercase tracking-widest text-blue-400">
               Final
@@ -736,7 +736,7 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
             <button
               key={cat}
               onClick={() => setCategory(cat)}
-              className={`rounded-full px-8 py-3 text-sm font-bold uppercase tracking-wider transition-all duration-300 ${category === cat ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" : "text-slate-500 hover:bg-white/5 hover:text-white"} `}
+              className={`rounded-full px-5 py-2.5 text-xs font-bold md:px-8 md:py-3 md:text-sm uppercase tracking-wider transition-all duration-300 ${category === cat ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" : "text-slate-500 hover:bg-white/5 hover:text-white"} `}
             >
               {cat}
             </button>
