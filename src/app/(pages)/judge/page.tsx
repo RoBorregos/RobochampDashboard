@@ -1,6 +1,6 @@
 "use client";
 
-import { FormChallengeA } from "../forms/FormChallengeA";
+import { FormChallengeMars } from "../forms/FormChallengeMars";
 
 import {
   Select,
@@ -59,7 +59,7 @@ export default function JudgePage() {
             </SelectTrigger>
 
             <SelectContent>
-              <SelectItem value="challengeA" className="cursor-pointer">
+              <SelectItem value="mars" className="cursor-pointer">
                 Pista
               </SelectItem>
             </SelectContent>
@@ -76,10 +76,10 @@ export default function JudgePage() {
 
 const ShowForm = ({ selection }: { selection: string }) => {
   switch (selection) {
-    case "challengeA":
+    case "mars":
       return (
         <ChallengeWrapper>
-          <FormChallengeA />
+          <FormChallengeMars />
         </ChallengeWrapper>
       );
     default:
