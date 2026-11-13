@@ -12,6 +12,7 @@ interface Match {
   team1?: string;
   team2?: string;
   team3?: string;
+  teams?: string[];
   winner?: string;
 }
 
@@ -42,80 +43,50 @@ interface BeginnersBracketData {
   thirdPlaceTeam: string;
 }
 
-const BEGINNERS_DATA: BeginnersBracketData = {
-  groups: [
-    {
-      id: "ga",
-      name: "Grupo A",
-      teams: [
-        "ALF4",
-        "BrookieBot",
-        "Clankers",
-        "NullPointers",
-        "Skibidy Circuits",
-      ],
+const GROUP_COUNT = 3;
+const QUARTER_COUNT = 3;
+
+// Deals teams round-robin so pools stay balanced whatever the team count.
+const deal = (teams: string[], pools: number) =>
+  Array.from({ length: pools }, (_, i) =>
+    teams.filter((_, idx) => idx % pools === i),
+  );
+
+const buildBeginnersData = (teams: string[]): BeginnersBracketData => ({
+  groups: deal(teams, GROUP_COUNT).map((pool, i) => {
+    const id = `g${String.fromCharCode(97 + i)}`;
+    return {
+      id,
+      name: `Grupo ${String.fromCharCode(65 + i)}`,
+      teams: pool,
       qualified: [],
-      finalMatch: { id: "ga_final" },
-    },
-    {
-      id: "gb",
-      name: "Grupo B",
-      teams: [
-        "Alfa Team",
-        "Búhos Team",
-        "Dream Team",
-        "Robocops",
-        "0xDEADBOTS",
-      ],
-      qualified: [],
-      finalMatch: { id: "gb_final" },
-    },
-    {
-      id: "gc",
-      name: "Grupo C",
-      teams: ["Aquilabots", "CheckMates", "Mecha Ryuu", "ROBO-HAWKS"],
-      qualified: [],
-      finalMatch: { id: "gc_final" },
-    },
-  ],
+      finalMatch: { id: `${id}_final` },
+    };
+  }),
   semifinalists: [],
   final: { id: "beg_final" },
   thirdPlaceTeam: "",
-};
+});
 
-const ADVANCED_DATA: AdvancedBracketData = {
+const buildAdvancedData = (teams: string[]): AdvancedBracketData => ({
   rounds: [
     {
       name: "Quarterfinals",
-      matches: [
-        {
-          id: "aq1",
-          team1: "Aguilatronics",
-          team2: "Cloud Robotics",
-          team3: "Kairo",
-        },
-        {
-          id: "aq2",
-          team1: "Alebrijes",
-          team2: "Delta",
-          team3: "MecAlfa",
-        },
-        {
-          id: "aq3",
-          team1: "Botbusters",
-          team2: "High Voltage",
-          team3: "Noche interestelar",
-        },
-      ],
+      matches: deal(teams, QUARTER_COUNT).map((pool, i) => ({
+        id: `aq${i + 1}`,
+        teams: pool,
+      })),
     },
     {
       name: "Semifinals",
-      matches: [{ id: "as1" }, { id: "as2" }, { id: "as3" }],
+      matches: Array.from({ length: QUARTER_COUNT }, (_, i) => ({
+        id: `as${i + 1}`,
+      })),
     },
   ],
   final: { id: "af" },
   thirdPlace: { id: "atp" },
-};
+});
 
 function TeamPill({
   name,
@@ -160,27 +131,16 @@ function MatchNode({
 }) {
   return (
     <div className="relative flex flex-col gap-3 md:gap-4">
-      {match.team1 && (
+      {(match.teams ??
+        [match.team1, match.team2, match.team3].filter(Boolean)
+      ).map((team) => (
         <TeamPill
-          name={match.team1}
-          isWinner={match.winner === match.team1}
-          onClick={onSelectTeam ? () => onSelectTeam(match.team1!) : undefined}
+          key={team}
+          name={team}
+          isWinner={match.winner === team}
+          onClick={onSelectTeam ? () => onSelectTeam(team!) : undefined}
         />
-      )}
-      {match.team2 && (
-        <TeamPill
-          name={match.team2}
-          isWinner={match.winner === match.team2}
-          onClick={onSelectTeam ? () => onSelectTeam(match.team2!) : undefined}
-        />
-      )}
-      {match.team3 && (
-        <TeamPill
-          name={match.team3}
-          isWinner={match.winner === match.team3}
-          onClick={onSelectTeam ? () => onSelectTeam(match.team3!) : undefined}
-        />
-      )}
+      ))}
     </div>
   );
 }
@@ -484,9 +444,9 @@ function AdvancedLayout({
 export default function BracketsClient({ userRole }: { userRole?: Role }) {
   const [category, setCategory] = useState<Category>(BracketCategory.BEGINNERS);
   const [beginnersData, setBeginnersData] =
-    useState<BeginnersBracketData>(BEGINNERS_DATA);
+    useState<BeginnersBracketData>(buildBeginnersData([]));
   const [advancedData, setAdvancedData] =
-    useState<AdvancedBracketData>(ADVANCED_DATA);
+    useState<AdvancedBracketData>(buildAdvancedData([]));
 
   // Check if user is admin
   const isAdmin = userRole === Role.ADMIN;
@@ -498,6 +458,24 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
   const { data: savedAdvancedData } = api.bracket.getBracket.useQuery({
     category: BracketCategory.ADVANCED,
   });
+
+  // Teams come from the DB; they seed the bracket until one is saved.
+  const { data: beginnersTeams } = api.bracket.getTeams.useQuery({
+    category: BracketCategory.BEGINNERS,
+  });
+  const { data: advancedTeams } = api.bracket.getTeams.useQuery({
+    category: BracketCategory.ADVANCED,
+  });
+
+  useEffect(() => {
+    if (beginnersTeams && savedBeginnersData === null)
+      setBeginnersData(buildBeginnersData(beginnersTeams));
+  }, [beginnersTeams, savedBeginnersData]);
+
+  useEffect(() => {
+    if (advancedTeams && savedAdvancedData === null)
+      setAdvancedData(buildAdvancedData(advancedTeams));
+  }, [advancedTeams, savedAdvancedData]);
 
   // Initialize with saved data when loaded
   useEffect(() => {
