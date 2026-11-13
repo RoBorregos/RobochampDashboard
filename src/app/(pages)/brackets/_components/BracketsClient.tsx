@@ -1,116 +1,85 @@
 "use client";
 
 import { BracketCategory, Role } from "@prisma/client";
-import { createContext, useContext, useState, useEffect } from "react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { api } from "~/trpc/react";
 import LogoLoader from "~/app/_components/logo-loader";
 import Header from "~/app/_components/header";
 
-type Category = BracketCategory;
+// Groups of at most 5 teams; each group winner goes to the semi-finals, paired in order.
+const MAX_GROUP = 5;
 
-interface Match {
-  id: string;
-  team1?: string;
-  team2?: string;
-  team3?: string;
-  teams?: string[];
-  winner?: string;
-}
-
-interface Round {
-  name: string;
-  matches: Match[];
-}
-
-interface AdvancedBracketData {
-  rounds: Round[];
-  final: Match;
-  thirdPlace?: Match;
-  winner?: string;
-}
-
-interface Group {
-  id: string;
-  name: string;
-  teams: string[];
-  qualified: string[];
-  finalMatch: Match;
-}
-
-interface BeginnersBracketData {
-  groups: Group[];
-  semifinalists: string[];
-  final: Match;
-  thirdPlaceTeam: string;
-}
-
-const GROUP_COUNT = 3;
-const QUARTER_COUNT = 3;
-
-// Deals teams round-robin so pools stay balanced whatever the team count.
-const deal = (teams: string[], pools: number) =>
-  Array.from({ length: pools }, (_, i) =>
-    teams.filter((_, idx) => idx % pools === i),
-  );
-
-const buildBeginnersData = (teams: string[]): BeginnersBracketData => ({
-  groups: deal(teams, GROUP_COUNT).map((pool, i) => {
-    const id = `g${String.fromCharCode(97 + i)}`;
-    return {
-      id,
-      name: `Grupo ${String.fromCharCode(65 + i)}`,
-      teams: pool,
-      qualified: [],
-      finalMatch: { id: `${id}_final` },
-    };
-  }),
-  semifinalists: [],
-  final: { id: "beg_final" },
-  thirdPlaceTeam: "",
-});
-
-const buildAdvancedData = (teams: string[]): AdvancedBracketData => ({
-  rounds: [
-    {
-      name: "Quarterfinals",
-      matches: deal(teams, QUARTER_COUNT).map((pool, i) => ({
-        id: `aq${i + 1}`,
-        teams: pool,
-      })),
-    },
-    {
-      name: "Semifinals",
-      matches: Array.from({ length: QUARTER_COUNT }, (_, i) => ({
-        id: `as${i + 1}`,
-      })),
-    },
-  ],
-  final: { id: "af" },
-  thirdPlace: { id: "atp" },
-});
-
-// Team name -> total points from the scoreboard (respects the freeze).
-const ScoresContext = createContext<Record<string, number>>({});
-
+type Data = { groups: string[][]; picks: Record<string, string> };
 type Slot = {
   name?: string;
   won?: boolean;
   onClick?: () => void;
-  disabled?: boolean;
+  // Admin drag-and-drop: drag a team onto another to swap them (key = "group:index").
+  dragKey?: string;
+  onSwap?: (fromKey: string) => void;
 };
+
+// Seeded shuffle: groups look random but are the same for every viewer and reload.
+function makeGroups(names: string[], random = false): string[][] {
+  const out = [...names].sort();
+  let seed = [...out.join("|")].reduce(
+    (h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0,
+    7,
+  );
+  const seeded = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const rand = random ? Math.random : seeded;
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  // Balanced sizes (4 or 5).
+  const count = Math.ceil(out.length / MAX_GROUP);
+  const groups: string[][] = [];
+  for (let g = 0, from = 0; g < count; g++) {
+    const size =
+      Math.floor(out.length / count) + (g < out.length % count ? 1 : 0);
+    groups.push(out.slice(from, (from += size)));
+  }
+  return groups;
+}
+
+// Derives every stage from the picks, dropping picks whose team is no longer in that match.
+function resolve({ groups, picks }: Data) {
+  const valid: Record<string, string> = {};
+  const pick = (id: string, teams: (string | undefined)[]) => {
+    const w = picks[id];
+    if (w && teams.includes(w)) valid[id] = w;
+    return valid[id];
+  };
+  const groupWinners = groups.map((g, i) => pick(`g${i}`, g));
+  const semis = Array.from({ length: Math.ceil(groups.length / 2) }, (_, k) => {
+    const teams = [groupWinners[2 * k], groupWinners[2 * k + 1]];
+    return { teams, winner: pick(`s${k}`, teams) };
+  });
+  const finalTeams = semis.map((s) => s.winner);
+  const champion = pick("f", finalTeams);
+  return { groupWinners, semis, finalTeams, champion, picks: valid };
+}
 
 // Google-style match card: stacked team rows, winner highlighted, losers dimmed.
 function MatchCard({
   slots,
   label,
   accent,
+  scores,
 }: {
   slots: Slot[];
   label?: string;
   accent?: boolean;
+  scores: Record<string, number>;
 }) {
   const decided = slots.some((s) => s.won);
-  const scores = useContext(ScoresContext);
   return (
     <div className="w-full">
       {(!!label || decided) && (
@@ -127,37 +96,42 @@ function MatchCard({
         className={`overflow-hidden rounded-xl border bg-[#141414] ${accent ? "border-blue-500/60" : "border-white/10"}`}
       >
         {slots.map((s, i) => {
-          const clickable = !!s.onClick && !s.disabled;
+          const clickable = !!s.onClick && !!s.name;
           return (
-            <button
+            <div
               key={`${s.name ?? "empty"}-${i}`}
-              type="button"
-              disabled={!clickable}
-              onClick={clickable ? s.onClick : undefined}
-              className={`flex h-9 w-full items-center justify-between gap-2 border-l-4 px-3 text-left text-sm ${i > 0 ? "border-t border-t-white/5" : ""} ${
-                s.won
-                  ? "border-l-blue-500 bg-blue-600/20 font-bold text-white"
-                  : `border-l-transparent ${decided ? "text-slate-500" : "text-slate-300"}`
-              } ${clickable ? "cursor-pointer hover:bg-white/5" : "cursor-default"}`}
+              draggable={!!s.dragKey}
+              onDragStart={(e) =>
+                e.dataTransfer.setData("text/plain", s.dragKey!)
+              }
+              onDragOver={(e) => s.onSwap && e.preventDefault()}
+              onDrop={(e) => s.onSwap?.(e.dataTransfer.getData("text/plain"))}
             >
-              <span className="truncate">
-                {s.name?.length ? (
-                  s.name
-                ) : (
-                  <span className="text-slate-600">—</span>
-                )}
-              </span>
-              {s.name && (
-                <span className="flex items-center gap-1 tabular-nums">
-                  {scores[s.name] ?? 0}
-                  <span
-                    className={`w-2 text-xs text-white ${s.won ? "" : "invisible"}`}
-                  >
-                    ◂
-                  </span>
+              <button
+                type="button"
+                disabled={!clickable}
+                onClick={clickable ? s.onClick : undefined}
+                className={`flex h-9 w-full items-center justify-between gap-2 border-l-4 px-3 text-left text-sm ${i > 0 ? "border-t border-t-white/5" : ""} ${
+                  s.won
+                    ? "border-l-blue-500 bg-blue-600/20 font-bold text-white"
+                    : `border-l-transparent ${decided ? "text-slate-500" : "text-slate-300"}`
+                } ${clickable ? "cursor-pointer hover:bg-white/5" : "cursor-default"}`}
+              >
+                <span className="truncate">
+                  {s.name ?? <span className="text-slate-600">—</span>}
                 </span>
-              )}
-            </button>
+                {s.name && (
+                  <span className="flex items-center gap-1 tabular-nums">
+                    {scores[s.name] ?? 0}
+                    <span
+                      className={`w-2 text-xs text-white ${s.won ? "" : "invisible"}`}
+                    >
+                      ◂
+                    </span>
+                  </span>
+                )}
+              </button>
+            </div>
           );
         })}
       </div>
@@ -227,43 +201,66 @@ function BracketScroller({ children }: { children: React.ReactNode }) {
   );
 }
 
-function FinalColumn({
-  final,
-  thirdPlace,
-  onSelectFinalWinner,
-  onSelectThirdPlace,
-  isAdmin,
+function CategoryBracket({
+  data,
+  scores,
+  onPick,
+  onSwap,
 }: {
-  final: Match;
-  thirdPlace: Slot;
-  onSelectFinalWinner?: (team: string) => void;
-  onSelectThirdPlace?: () => void;
-  isAdmin?: boolean;
+  data: Data;
+  scores: Record<string, number>;
+  onPick?: (id: string, team: string) => void;
+  onSwap?: (a: string, b: string) => void;
 }) {
-  const slot = (team?: string): Slot => ({
+  const r = resolve(data);
+  const slot = (id: string, team: string | undefined): Slot => ({
     name: team,
-    won: !!team && final.winner === team,
-    onClick:
-      isAdmin && team && onSelectFinalWinner
-        ? () => onSelectFinalWinner(team)
-        : undefined,
+    won: !!team && r.picks[id] === team,
+    onClick: onPick && team ? () => onPick(id, team) : undefined,
   });
+  const g = data.groups.length;
+  const s = r.semis.length;
+
   return (
-    <>
+    <BracketScroller>
+      <RoundColumn title="Grupos">
+        {data.groups.map((teams, i) => (
+          <Row key={i}>
+            <MatchCard
+              scores={scores}
+              label={`Grupo ${String.fromCharCode(65 + i)}`}
+              slots={teams.map((t, j) => ({
+                ...slot(`g${i}`, t),
+                dragKey: onSwap ? `${i}:${j}` : undefined,
+                onSwap: onSwap
+                  ? (from) => onSwap(from, `${i}:${j}`)
+                  : undefined,
+              }))}
+            />
+          </Row>
+        ))}
+      </RoundColumn>
+      <Links from={g} to={s} />
+      <RoundColumn title="Semifinales">
+        {r.semis.map((m, k) => (
+          <Row key={k}>
+            <MatchCard
+              accent
+              scores={scores}
+              label={`Semifinal ${k + 1}`}
+              slots={m.teams.map((t) => slot(`s${k}`, t))}
+            />
+          </Row>
+        ))}
+      </RoundColumn>
+      <Links from={s} to={1} />
       <RoundColumn title="Final">
         <Row>
-          <MatchCard accent slots={[slot(final.team1), slot(final.team2)]} />
-          <div className="absolute inset-x-0 top-full -mt-2 pt-6">
-            <MatchCard
-              label="3er Lugar"
-              slots={[
-                {
-                  ...thirdPlace,
-                  onClick: isAdmin ? onSelectThirdPlace : undefined,
-                },
-              ]}
-            />
-          </div>
+          <MatchCard
+            accent
+            scores={scores}
+            slots={r.finalTeams.map((t) => slot("f", t))}
+          />
         </Row>
       </RoundColumn>
       <Links from={1} to={1} />
@@ -271,445 +268,87 @@ function FinalColumn({
         <Row>
           <MatchCard
             accent
-            slots={[{ name: final.winner, won: !!final.winner }]}
+            scores={scores}
+            slots={[{ name: r.champion, won: !!r.champion }]}
           />
         </Row>
       </RoundColumn>
-    </>
-  );
-}
-
-function BeginnersLayout({
-  data,
-  isAdmin,
-  onSetFinalWinner,
-  onToggleQualified,
-  onSelectGroupFinalWinner,
-}: {
-  data: BeginnersBracketData;
-  isAdmin?: boolean;
-  onSetFinalWinner?: (team: string) => void;
-  onToggleQualified?: (groupId: string, team: string) => void;
-  onSelectGroupFinalWinner?: (groupId: string, team: string) => void;
-}) {
-  const n = data.groups.length;
-  return (
-    <BracketScroller>
-      <RoundColumn title="Grupos">
-        {data.groups.map((g) => (
-          <Row key={g.id}>
-            <MatchCard
-              label={g.name}
-              slots={g.teams.map((team) => ({
-                name: team,
-                won: g.qualified.includes(team),
-                disabled: !!g.finalMatch.winner,
-                onClick: isAdmin
-                  ? () => onToggleQualified?.(g.id, team)
-                  : undefined,
-              }))}
-            />
-          </Row>
-        ))}
-      </RoundColumn>
-      <Links from={n} to={n} />
-      <RoundColumn title="Final de grupo">
-        {data.groups.map((g) => (
-          <Row key={g.id}>
-            <MatchCard
-              slots={[g.finalMatch.team1, g.finalMatch.team2].map((team) => ({
-                name: team,
-                won: !!team && g.finalMatch.winner === team,
-                disabled: !!g.finalMatch.winner,
-                onClick:
-                  isAdmin && team
-                    ? () => onSelectGroupFinalWinner?.(g.id, team)
-                    : undefined,
-              }))}
-            />
-          </Row>
-        ))}
-      </RoundColumn>
-      <Links from={n} to={1} />
-      <FinalColumn
-        final={data.final}
-        isAdmin={isAdmin}
-        onSelectFinalWinner={onSetFinalWinner}
-        thirdPlace={{ name: data.thirdPlaceTeam }}
-      />
-    </BracketScroller>
-  );
-}
-
-function AdvancedLayout({
-  data,
-  isAdmin,
-  onSelectQuarterWinner,
-  onSelectSemifinalWinner,
-  onSelectFinalWinner,
-  onSelectThirdPlace,
-}: {
-  data: AdvancedBracketData;
-  isAdmin?: boolean;
-  onSelectQuarterWinner?: (matchId: string, team: string) => void;
-  onSelectSemifinalWinner?: (matchId: string, team: string) => void;
-  onSelectFinalWinner?: (team: string) => void;
-  onSelectThirdPlace?: (team: string) => void;
-}) {
-  const quarterfinals = data.rounds[0];
-  const semifinals = data.rounds[1];
-  if (!quarterfinals || !semifinals) return null;
-
-  const n = quarterfinals.matches.length;
-  const thirdName = data.thirdPlace?.winner ?? data.thirdPlace?.team1;
-
-  return (
-    <BracketScroller>
-      <RoundColumn title="Cuartos">
-        {quarterfinals.matches.map((q) => (
-          <Row key={q.id}>
-            <MatchCard
-              slots={(
-                q.teams ?? [q.team1, q.team2, q.team3].filter(Boolean)
-              ).map((team) => ({
-                name: team,
-                won: q.winner === team,
-                onClick: isAdmin
-                  ? () => onSelectQuarterWinner?.(q.id, team!)
-                  : undefined,
-              }))}
-            />
-          </Row>
-        ))}
-      </RoundColumn>
-      <Links from={n} to={n} />
-      <RoundColumn title="Semifinales">
-        {semifinals.matches.map((s) => (
-          <Row key={s.id}>
-            <MatchCard
-              slots={[
-                {
-                  name: s.winner ?? s.team1,
-                  won: !!s.winner,
-                  onClick:
-                    isAdmin && s.team1
-                      ? () => onSelectSemifinalWinner?.(s.id, s.team1!)
-                      : undefined,
-                },
-              ]}
-            />
-          </Row>
-        ))}
-      </RoundColumn>
-      <Links from={n} to={1} />
-      <FinalColumn
-        final={data.final}
-        isAdmin={isAdmin}
-        onSelectFinalWinner={onSelectFinalWinner}
-        thirdPlace={{ name: thirdName, won: !!data.thirdPlace?.winner }}
-        onSelectThirdPlace={
-          thirdName ? () => onSelectThirdPlace?.(thirdName) : undefined
-        }
-      />
     </BracketScroller>
   );
 }
 
 export default function BracketsClient({ userRole }: { userRole?: Role }) {
-  const [category, setCategory] = useState<Category>(BracketCategory.BEGINNERS);
-  const [beginnersData, setBeginnersData] = useState<BeginnersBracketData>(
-    buildBeginnersData([]),
+  const [category, setCategory] = useState<BracketCategory>(
+    BracketCategory.BEGINNERS,
   );
-  const [advancedData, setAdvancedData] = useState<AdvancedBracketData>(
-    buildAdvancedData([]),
-  );
-
-  // Check if user is admin
   const isAdmin = userRole === Role.ADMIN;
-
-  // Load saved bracket data (public - anyone can view)
-  const { data: savedBeginnersData } = api.bracket.getBracket.useQuery({
-    category: BracketCategory.BEGINNERS,
-  });
-  const { data: savedAdvancedData } = api.bracket.getBracket.useQuery({
-    category: BracketCategory.ADVANCED,
-  });
-
-  // Teams come from the DB; they seed the bracket until one is saved.
-  const { data: beginnersTeams } = api.bracket.getTeams.useQuery({
-    category: BracketCategory.BEGINNERS,
-  });
-  const { data: advancedTeams } = api.bracket.getTeams.useQuery({
-    category: BracketCategory.ADVANCED,
-  });
-
-  useEffect(() => {
-    if (beginnersTeams && savedBeginnersData === null)
-      setBeginnersData(buildBeginnersData(beginnersTeams));
-  }, [beginnersTeams, savedBeginnersData]);
-
-  useEffect(() => {
-    if (advancedTeams && savedAdvancedData === null)
-      setAdvancedData(buildAdvancedData(advancedTeams));
-  }, [advancedTeams, savedAdvancedData]);
-
-  // Initialize with saved data when loaded
-  useEffect(() => {
-    if (savedBeginnersData) {
-      const data = savedBeginnersData as unknown as BeginnersBracketData;
-      // Ensure qualified array is synced with finalMatch teams
-      const normalizedData = {
-        ...data,
-        groups: data.groups.map((g) => {
-          const qualified = [...g.qualified];
-          // If finalMatch has teams but qualified is empty/incomplete, rebuild it
-          if (g.finalMatch.team1 && g.finalMatch.team2) {
-            const team1InQualified = qualified.includes(g.finalMatch.team1);
-            const team2InQualified = qualified.includes(g.finalMatch.team2);
-            if (!team1InQualified || !team2InQualified) {
-              const newQualified = [g.finalMatch.team1, g.finalMatch.team2];
-              return { ...g, qualified: newQualified };
-            }
-          }
-          return g;
-        }),
-      };
-      setBeginnersData(normalizedData);
-    }
-  }, [savedBeginnersData]);
-
-  useEffect(() => {
-    if (savedAdvancedData) {
-      setAdvancedData(savedAdvancedData as unknown as AdvancedBracketData);
-    }
-  }, [savedAdvancedData]);
+  const utils = api.useUtils();
 
   const { data: scoreboard } = api.scoreboard.getScoreboard.useQuery();
-  const scores = Object.fromEntries(
-    (scoreboard ?? []).map((t) => [t.teamName, t.total]),
+  const { data: teams } = api.bracket.getTeams.useQuery({ category });
+  const { data: saved } = api.bracket.getBracket.useQuery({ category });
+  // Unconfirmed admin edits per category; nothing is saved until "Confirmar".
+  const [drafts, setDrafts] = useState<Partial<Record<BracketCategory, Data>>>(
+    {},
   );
-
-  const saveBracket = api.bracket.saveBracket.useMutation({
-    onSuccess: () => {
-      alert("Bracket guardado exitosamente!");
+  const draft = drafts[category];
+  const clearDraft = () => setDrafts((d) => ({ ...d, [category]: undefined }));
+  const save = api.bracket.saveBracket.useMutation({
+    onSuccess: async () => {
+      await utils.bracket.getBracket.invalidate({ category });
+      clearDraft();
+      toast.success("Bracket guardado");
     },
-    onError: (error) => {
-      alert(`Error al guardar: ${error.message}`);
-    },
+    onError: (e) => toast.error(`Error al guardar: ${e.message}`),
   });
 
-  // Advanced bracket handlers
-  const handleAdvancedMatchWinner = (matchId: string, team: string) => {
-    setAdvancedData((prev) => {
-      // Update quarterfinal winner
-      const newRounds = prev.rounds.map((r) =>
-        r.name === "Quarterfinals"
-          ? {
-              ...r,
-              matches: r.matches.map((m) =>
-                m.id === matchId ? { ...m, winner: team } : m,
-              ),
-            }
-          : r,
-      );
+  if (!scoreboard || !teams || saved === undefined) return <LogoLoader />;
 
-      // Get all quarter winners and update semifinals
-      const quarterRound = newRounds.find((r) => r.name === "Quarterfinals");
-      const qWinners =
-        quarterRound?.matches.map((m) => m.winner).filter(Boolean) ?? [];
+  // Saved data in an older shape is ignored and rebuilt from the team list.
+  const s = saved as Partial<Data> | null;
+  const saved_: Data =
+    s && Array.isArray(s.groups) && s.groups.every(Array.isArray) && s.picks
+      ? (s as Data)
+      : { groups: makeGroups(teams), picks: {} };
+  const data = draft ?? saved_;
+  const scores = Object.fromEntries(
+    scoreboard.map((t) => [t.teamName, t.total]),
+  );
 
-      const updatedRounds = newRounds.map((r) =>
-        r.name === "Semifinals"
-          ? {
-              ...r,
-              matches: r.matches.map((m, idx) => ({
-                ...m,
-                team1: qWinners[idx] ?? m.team1,
-              })),
-            }
-          : r,
-      );
-
-      // Get semi winners and update final
-      const semiRound = updatedRounds.find((r) => r.name === "Semifinals");
-      const semiWinners =
-        semiRound?.matches.map((m) => m.winner).filter(Boolean) ?? [];
-
-      const final = { ...prev.final };
-      if (semiWinners.length >= 2) {
-        final.team1 = semiWinners[0];
-        final.team2 = semiWinners[1];
-      }
-
-      // Third place gets remaining semi winner
-      const thirdPlace = prev.thirdPlace ? { ...prev.thirdPlace } : undefined;
-      if (thirdPlace && semiWinners.length === 3) {
-        thirdPlace.team1 = semiWinners[2];
-      }
-
-      return { ...prev, rounds: updatedRounds, final, thirdPlace };
-    });
-  };
-
-  const handleAdvancedSemifinalWinner = (matchId: string, team: string) => {
-    setAdvancedData((prev) => {
-      // Update semifinal winner
-      const newRounds = prev.rounds.map((r) =>
-        r.name === "Semifinals"
-          ? {
-              ...r,
-              matches: r.matches.map((m) =>
-                m.id === matchId ? { ...m, winner: team } : m,
-              ),
-            }
-          : r,
-      );
-
-      // Get semi winners and update final
-      const semiRound = newRounds.find((r) => r.name === "Semifinals");
-      const semiWinners =
-        semiRound?.matches.map((m) => m.winner).filter(Boolean) ?? [];
-
-      const final = { ...prev.final };
-      if (semiWinners.length >= 2) {
-        final.team1 = semiWinners[0];
-        final.team2 = semiWinners[1];
-      }
-
-      // Third place gets remaining semi winner
-      const thirdPlace = prev.thirdPlace ? { ...prev.thirdPlace } : undefined;
-      if (thirdPlace && semiWinners.length === 3) {
-        thirdPlace.team1 = semiWinners[2];
-      }
-
-      return { ...prev, rounds: newRounds, final, thirdPlace };
-    });
-  };
-
-  const handleAdvancedFinalWinner = (team: string) => {
-    setAdvancedData((prev) => ({
-      ...prev,
-      final: { ...prev.final, winner: team },
+  // Clicking the selected team again unselects it.
+  const onPick = (id: string, team: string) => {
+    const picks = { ...data.picks };
+    if (picks[id] === team) delete picks[id];
+    else picks[id] = team;
+    setDrafts((d) => ({
+      ...d,
+      [category]: {
+        groups: data.groups,
+        picks: resolve({ ...data, picks }).picks,
+      },
     }));
   };
 
-  const handleAdvancedThirdPlace = (team: string) => {
-    setAdvancedData((prev) =>
-      prev.thirdPlace
-        ? { ...prev, thirdPlace: { ...prev.thirdPlace, winner: team } }
-        : prev,
-    );
+  const setData = (next: Data) =>
+    setDrafts((d) => ({ ...d, [category]: next }));
+
+  const onSwap = (a: string, b: string) => {
+    const groups = data.groups.map((g) => [...g]);
+    const [ai, aj, bi, bj] = [...a.split(":"), ...b.split(":")].map(Number);
+    const x = groups[ai!]?.[aj!];
+    const y = groups[bi!]?.[bj!];
+    if (x === undefined || y === undefined) return;
+    groups[ai!]![aj!] = y;
+    groups[bi!]![bj!] = x;
+    setData({ groups, picks: resolve({ groups, picks: data.picks }).picks });
   };
-
-  // Beginners bracket handlers
-  const handleBeginnersFinalWinner = (team: string) => {
-    setBeginnersData((prev) => ({
-      ...prev,
-      final: { ...prev.final, winner: team },
-    }));
-  };
-
-  const handleToggleQualified = (groupId: string, team: string) => {
-    setBeginnersData((prev) => {
-      const groups = prev.groups.map((g) => {
-        if (g.id !== groupId) return g;
-
-        // Don't allow changes if group final winner is already set
-        if (g.finalMatch.winner) return g;
-
-        const qualified = [...g.qualified];
-        const teamIndex = qualified.indexOf(team);
-
-        if (teamIndex >= 0) {
-          qualified.splice(teamIndex, 1);
-        } else if (qualified.length < 2) {
-          qualified.push(team);
-        }
-
-        const finalMatch = { ...g.finalMatch };
-        if (qualified.length === 2) {
-          finalMatch.team1 = qualified[0];
-          finalMatch.team2 = qualified[1];
-          if (finalMatch.winner && !qualified.includes(finalMatch.winner)) {
-            delete finalMatch.winner;
-          }
-        } else if (qualified.length < 2) {
-          // Only clear finalMatch if we don't have 2 qualified teams
-          // This prevents clearing on reload when finalMatch exists
-          if (!finalMatch.team1 || !finalMatch.team2) {
-            finalMatch.team1 = undefined;
-            finalMatch.team2 = undefined;
-            delete finalMatch.winner;
-          }
-        }
-
-        return { ...g, qualified, finalMatch };
-      });
-
-      // Get group final winners and update main final
-      const groupWinners = groups
-        .map((g) => g.finalMatch.winner)
-        .filter(Boolean) as string[];
-
-      const final = { ...prev.final };
-      if (groupWinners.length >= 2) {
-        final.team1 = groupWinners[0];
-        final.team2 = groupWinners[1];
-      }
-
-      const thirdPlaceTeam =
-        groupWinners.length === 3 ? (groupWinners[2] ?? "") : "";
-
-      return { ...prev, groups, final, thirdPlaceTeam };
-    });
-  };
-
-  const handleGroupFinalWinner = (groupId: string, team: string) => {
-    setBeginnersData((prev) => {
-      const groups = prev.groups.map((g) => {
-        // Don't allow changing winner if already set
-        if (g.id === groupId && !g.finalMatch.winner) {
-          return { ...g, finalMatch: { ...g.finalMatch, winner: team } };
-        }
-        return g;
-      });
-
-      // Get group final winners and update main final
-      const groupWinners = groups
-        .map((g) => g.finalMatch.winner)
-        .filter(Boolean) as string[];
-
-      const final = { ...prev.final };
-      if (groupWinners.length >= 2) {
-        final.team1 = groupWinners[0];
-        final.team2 = groupWinners[1];
-      }
-
-      const thirdPlaceTeam =
-        groupWinners.length === 3 ? (groupWinners[2] ?? "") : "";
-
-      return { ...prev, groups, final, thirdPlaceTeam };
-    });
-  };
-
-  if (
-    savedBeginnersData === undefined ||
-    savedAdvancedData === undefined ||
-    !beginnersTeams ||
-    !advancedTeams
-  )
-    return <LogoLoader />;
 
   return (
     <div className="flex min-h-screen flex-col items-center overflow-auto bg-[#0a0a0a] p-4 pt-24 text-white md:p-8 md:pt-32">
-      {/* Unified header style */}
       <div className="z-10 mb-8 flex w-full max-w-5xl flex-col items-center">
         <Header title="ROBOCHAMP" subtitle={category.toUpperCase()} />
-        {/* Category Toggle */}
         <div className="-mt-10 flex rounded-full border border-white/10 bg-[#1a1a1a] p-1.5">
-          {(
-            [BracketCategory.BEGINNERS, BracketCategory.ADVANCED] as Category[]
-          ).map((cat) => (
+          {[BracketCategory.BEGINNERS, BracketCategory.ADVANCED].map((cat) => (
             <button
               key={cat}
               onClick={() => setCategory(cat)}
@@ -719,51 +358,47 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
             </button>
           ))}
         </div>
-        {/* Admin Controls - Only visible to admins */}
-        {isAdmin && (
-          <div className="mt-4 flex items-center gap-4">
-            <button
-              onClick={() => {
-                if (category === BracketCategory.BEGINNERS) {
-                  saveBracket.mutate({
-                    category: BracketCategory.BEGINNERS,
-                    payload: beginnersData,
-                  });
-                } else {
-                  saveBracket.mutate({
-                    category: BracketCategory.ADVANCED,
-                    payload: advancedData,
-                  });
-                }
-              }}
-              className={`rounded-full border px-6 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 ${saveBracket.isPending ? "cursor-wait opacity-50" : "border-green-500 bg-[#1a1a1a] text-green-400 hover:bg-green-600 hover:text-white"}`}
-            >
-              {saveBracket.isPending ? "Guardando..." : "Guardar Bracket"}
-            </button>
-          </div>
-        )}
+        <p className="mt-4 text-center text-xs text-slate-500">
+          Grupos de 4 o 5 equipos · el ganador de cada grupo pasa a semifinales
+          {isAdmin &&
+            " · toca un equipo para marcarlo ganador · arrastra un equipo sobre otro para intercambiarlos"}
+        </p>
       </div>
-      {/* Main Content Area */}
-      <ScoresContext.Provider value={scores}>
-        {category === BracketCategory.BEGINNERS ? (
-          <BeginnersLayout
-            data={beginnersData}
-            isAdmin={isAdmin}
-            onSetFinalWinner={handleBeginnersFinalWinner}
-            onToggleQualified={handleToggleQualified}
-            onSelectGroupFinalWinner={handleGroupFinalWinner}
-          />
-        ) : (
-          <AdvancedLayout
-            data={advancedData}
-            isAdmin={isAdmin}
-            onSelectQuarterWinner={handleAdvancedMatchWinner}
-            onSelectSemifinalWinner={handleAdvancedSemifinalWinner}
-            onSelectFinalWinner={handleAdvancedFinalWinner}
-            onSelectThirdPlace={handleAdvancedThirdPlace}
-          />
-        )}
-      </ScoresContext.Provider>
+      {isAdmin && (
+        <button
+          onClick={() =>
+            setData({ groups: makeGroups(teams, true), picks: {} })
+          }
+          className="mb-4 rounded-full border border-blue-500 bg-[#1a1a1a] px-6 py-2 text-xs font-bold uppercase tracking-wider text-blue-400 transition-all hover:bg-blue-600 hover:text-white"
+        >
+          Aleatorizar grupos
+        </button>
+      )}
+      {isAdmin && draft && (
+        <div className="mb-4 flex gap-3">
+          <button
+            disabled={save.isPending}
+            onClick={() => save.mutate({ category, payload: draft })}
+            className="rounded-full border border-green-500 bg-[#1a1a1a] px-6 py-2 text-xs font-bold uppercase tracking-wider text-green-400 transition-all hover:bg-green-600 hover:text-white disabled:cursor-wait disabled:opacity-50"
+          >
+            {save.isPending ? "Guardando..." : "Confirmar cambios"}
+          </button>
+          <button
+            disabled={save.isPending}
+            onClick={clearDraft}
+            className="rounded-full border border-white/10 px-6 py-2 text-xs font-bold uppercase tracking-wider text-slate-300 hover:bg-white/5"
+          >
+            Descartar
+          </button>
+        </div>
+      )}
+      <CategoryBracket
+        key={category}
+        data={data}
+        scores={scores}
+        onPick={isAdmin ? onPick : undefined}
+        onSwap={isAdmin ? onSwap : undefined}
+      />
     </div>
   );
 }
