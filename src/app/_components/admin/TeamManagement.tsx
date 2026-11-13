@@ -34,12 +34,67 @@ interface TeamManagementProps {
   refetchAll: () => void;
 }
 
+// Modal popup: the destructive action needs typed confirmation.
+function DeleteConfirmModal({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState("");
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onCancel}
+      onKeyDown={(e) => e.key === "Escape" && onCancel()}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm space-y-3 rounded-lg border border-red-500 bg-gray-900 p-5 text-sm text-white shadow-lg"
+      >
+        <p className="font-semibold">Remove ALL teams?</p>
+        <p className="text-gray-400">
+          This also deletes their rounds and scores and unassigns every user. It
+          cannot be undone. Type <b className="text-red-400">DELETE</b> to
+          confirm.
+        </p>
+        <input
+          autoFocus
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="DELETE"
+          className="w-full rounded border border-gray-600 bg-gray-700 p-2"
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded bg-gray-600 px-3 py-1 hover:bg-gray-500"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={text !== "DELETE"}
+            className="rounded bg-red-600 px-3 py-1 hover:bg-red-700 disabled:opacity-40"
+          >
+            Delete all
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TeamManagement({
   users,
   teams,
   pendingRequests,
   refetchAll,
 }: TeamManagementProps) {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState<string>("");
   const [userTeamSelections, setUserTeamSelections] = useState<
     Record<string, string>
@@ -76,7 +131,8 @@ export default function TeamManagement({
     },
   });
 
-  // Excel saves this CSV as Windows-1252, so fall back when it is not UTF-8.
+  // Strict UTF-8 first (throws on invalid bytes); Excel's "CSV" export is
+  // Windows-1252, which never fails to decode, so it is the fallback.
   const handleCsvFile = async (file: File) => {
     const buffer = await file.arrayBuffer();
     let text: string;
@@ -259,6 +315,16 @@ export default function TeamManagement({
         </div>
       </div>
 
+      {showDeleteModal && (
+        <DeleteConfirmModal
+          onCancel={() => setShowDeleteModal(false)}
+          onConfirm={() => {
+            setShowDeleteModal(false);
+            deleteAllTeams.mutate();
+          }}
+        />
+      )}
+
       <div className="rounded-lg bg-gray-800 p-6">
         <h3 className="mb-2 text-xl font-semibold">Import Selection CSV</h3>
         <p className="mb-4 text-sm text-gray-400">
@@ -277,14 +343,7 @@ export default function TeamManagement({
           className="text-sm"
         />
         <button
-          onClick={() => {
-            if (
-              window.confirm(
-                "Remove ALL teams? This also deletes their rounds and scores and unassigns every user. This cannot be undone.",
-              )
-            )
-              deleteAllTeams.mutate();
-          }}
+          onClick={() => setShowDeleteModal(true)}
           disabled={deleteAllTeams.isPending}
           className="ml-4 rounded bg-red-600 px-4 py-2 text-sm hover:bg-red-700 disabled:opacity-50"
         >
@@ -353,7 +412,8 @@ export default function TeamManagement({
             <div key={team.id} className="rounded bg-gray-700 p-4">
               <h4 className="mb-2 font-semibold">{team.name}</h4>
               <p className="mb-2 text-sm text-gray-400">
-                Members: {(team._count?.members ?? 0) + (team.roster?.length ?? 0)} / 4
+                Members:{" "}
+                {(team._count?.members ?? 0) + (team.roster?.length ?? 0)} / 4
                 {(team._count?.members ?? 0) + (team.roster?.length ?? 0) >= 4
                   ? " - Full"
                   : ""}

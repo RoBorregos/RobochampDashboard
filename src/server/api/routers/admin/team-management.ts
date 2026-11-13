@@ -4,8 +4,11 @@ import { parse } from "csv-parse/sync";
 import { BracketCategory } from "@prisma/client";
 
 // Columns are matched by prefix because accents in headers/values may be mangled.
+// Values are trimmed and inner runs of whitespace collapsed ("Ana   Perez").
 const col = (r: Record<string, string>, prefix: string) =>
-  r[Object.keys(r).find((k) => k.startsWith(prefix)) ?? ""] ?? "";
+  (r[Object.keys(r).find((k) => k.startsWith(prefix)) ?? ""] ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
 
 const categoryOf = (value: string) => {
   if (/A \(/.test(value)) return BracketCategory.BEGINNERS;
@@ -39,6 +42,7 @@ export const teamManagementRouter = createTRPCRouter({
         skip_empty_lines: true,
         trim: true,
         bom: true,
+        relax_column_count: true,
       }) as Record<string, string>[];
 
       const teams = new Map<string, typeof rows>();
