@@ -82,6 +82,7 @@ model User {
   judgedChallengeA ChallengeA[]
   judgedChallengeB ChallengeB[]
   judgedChallengeC ChallengeC[]
+  judgedMarsRuns   MarsRun[]
   sessions         Session[]
   team             Team?            @relation(fields: [teamId], references: [id])
   teamRequests     TeamRequest?
@@ -121,6 +122,7 @@ model Team {
   challengeA     ChallengeA[]
   challengeB     ChallengeB[]
   challengeC     ChallengeC[]
+  marsRuns       MarsRun[]
   rounds         Round[]
   members        User[]
   // Filled from seleccion2026.csv (npm run db:seed-selection).
@@ -193,6 +195,26 @@ model ChallengeA {
   roundId          String
   user             User     @relation(fields: [judgeID], references: [id], onDelete: Cascade)
   team             Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+// 2026 track ("Invernadero marciano"), both categories. Limits live in src/lib/marsScoring.ts.
+model MarsRun {
+  id               String          @id @default(cuid())
+  category         BracketCategory
+  panels           Int             @default(0)
+  speedBumps       Int             @default(0)
+  stairs           Int             @default(0)
+  seeds            Int             @default(0)
+  seesawCrossed    Boolean         @default(false)
+  judgeID          String
+  lackOfProgress   Int
+  points           Int
+  roundId          String
+  roundTimeSeconds Int
+  teamId           String
+  createdAt        DateTime        @default(now())
+  user             User            @relation(fields: [judgeID], references: [id], onDelete: Cascade)
+  team             Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
 }
 
 model ChallengeB {
