@@ -1,7 +1,7 @@
 "use client";
 
 import { BracketCategory, Role } from "@prisma/client";
-import { useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { api } from "~/trpc/react";
 import LogoLoader from "~/app/_components/logo-loader";
 import Header from "~/app/_components/header";
@@ -89,126 +89,193 @@ const buildAdvancedData = (teams: string[]): AdvancedBracketData => ({
   thirdPlace: { id: "atp" },
 });
 
-function TeamPill({
-  name,
-  isWinner,
-  small = false,
-  onClick,
-  disabled,
-  variant,
-}: {
+// Team name -> total points from the scoreboard (respects the freeze).
+const ScoresContext = createContext<Record<string, number>>({});
+
+type Slot = {
   name?: string;
-  isWinner?: boolean;
-  small?: boolean;
+  won?: boolean;
   onClick?: () => void;
   disabled?: boolean;
-  variant?: "blue" | "gray";
-}) {
-  const clickable = !!onClick && !disabled;
-  return (
-    <button
-      type="button"
-      disabled={!clickable}
-      onClick={clickable ? onClick : undefined}
-      className={`relative flex select-none items-center justify-center ${small ? "h-10 w-32 text-xs" : "h-12 w-28 text-xs md:h-16 md:w-56 md:text-base"} rounded-2xl border transition-all duration-300 ${
-        isWinner || variant === "blue"
-          ? "z-10 scale-105 border-blue-400 bg-blue-600 font-bold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]"
-          : "border-[#333] bg-[#1a1a1a] text-slate-400"
-      } ${clickable && !(isWinner || variant === "blue") ? "cursor-pointer hover:border-blue-400 hover:shadow-[0_0_8px_rgba(59,130,246,0.4)]" : ""} ${!clickable ? "opacity-60" : ""} `}
-    >
-      <span className="truncate px-2 md:px-4">{name ?? ""}</span>
-    </button>
-  );
-}
+};
 
-function MatchNode({
-  match,
-  roundIndex: _roundIndex,
-  onSelectTeam,
+// Google-style match card: stacked team rows, winner highlighted, losers dimmed.
+function MatchCard({
+  slots,
+  label,
+  accent,
 }: {
-  match: Match;
-  roundIndex: number;
-  onSelectTeam?: (team: string) => void;
+  slots: Slot[];
+  label?: string;
+  accent?: boolean;
 }) {
+  const decided = slots.some((s) => s.won);
+  const scores = useContext(ScoresContext);
   return (
-    <div className="relative flex flex-col gap-3 md:gap-4">
-      {(match.teams ??
-        [match.team1, match.team2, match.team3].filter(Boolean)
-      ).map((team) => (
-        <TeamPill
-          key={team}
-          name={team}
-          isWinner={match.winner === team}
-          onClick={onSelectTeam ? () => onSelectTeam(team!) : undefined}
-        />
-      ))}
+    <div className="w-full">
+      {(!!label || decided) && (
+        <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          <span>{label}</span>
+          {decided && (
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-slate-300">
+              FT
+            </span>
+          )}
+        </div>
+      )}
+      <div
+        className={`overflow-hidden rounded-xl border bg-[#141414] ${accent ? "border-blue-500/60" : "border-white/10"}`}
+      >
+        {slots.map((s, i) => {
+          const clickable = !!s.onClick && !s.disabled;
+          return (
+            <button
+              key={`${s.name ?? "empty"}-${i}`}
+              type="button"
+              disabled={!clickable}
+              onClick={clickable ? s.onClick : undefined}
+              className={`flex h-9 w-full items-center justify-between gap-2 border-l-4 px-3 text-left text-sm ${i > 0 ? "border-t border-t-white/5" : ""} ${
+                s.won
+                  ? "border-l-blue-500 bg-blue-600/20 font-bold text-white"
+                  : `border-l-transparent ${decided ? "text-slate-500" : "text-slate-300"}`
+              } ${clickable ? "cursor-pointer hover:bg-white/5" : "cursor-default"}`}
+            >
+              <span className="truncate">
+                {s.name?.length ? (
+                  s.name
+                ) : (
+                  <span className="text-slate-600">—</span>
+                )}
+              </span>
+              {s.name && (
+                <span className="flex items-center gap-1 tabular-nums">
+                  {scores[s.name] ?? 0}
+                  <span
+                    className={`w-2 text-xs text-white ${s.won ? "" : "invisible"}`}
+                  >
+                    ◂
+                  </span>
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function GroupBracket({
-  group,
+// One round column: title on top, equal-height rows so cards line up with the connectors.
+function RoundColumn({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex w-52 shrink-0 snap-start flex-col sm:w-56">
+      <h3 className="flex h-8 items-center justify-center text-[11px] font-bold uppercase tracking-widest text-blue-400">
+        {title}
+      </h3>
+      <div className="grid flex-1 items-center" style={{ gridAutoRows: "1fr" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const Row = ({ children }: { children: React.ReactNode }) => (
+  <div className="relative flex items-center py-2">{children}</div>
+);
+
+// Elbow connectors from `from` evenly spaced rows to `to` evenly spaced rows.
+function Links({ from, to }: { from: number; to: number }) {
+  const y = (i: number, n: number) => ((i + 0.5) / n) * 100;
+  const d = Array.from({ length: from }, (_, i) => {
+    const t = Math.min(to - 1, Math.floor((i * to) / from));
+    return `M0 ${y(i, from)}H12V${y(t, to)}H24`;
+  }).join("");
+  return (
+    <div className="flex w-6 shrink-0 flex-col sm:w-10">
+      <div className="h-8" />
+      <svg
+        className="min-h-0 w-full flex-1"
+        viewBox="0 0 24 100"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <path
+          d={d}
+          fill="none"
+          stroke="#3b82f6"
+          strokeOpacity={0.45}
+          strokeWidth={1.5}
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    </div>
+  );
+}
+
+// Horizontally swipeable on phones (snaps per round); centered on desktop.
+function BracketScroller({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="w-full max-w-7xl snap-x snap-mandatory overflow-x-auto px-4 pb-8 [scrollbar-width:thin]">
+      <div className="mx-auto flex w-max">{children}</div>
+    </div>
+  );
+}
+
+function FinalColumn({
+  final,
+  thirdPlace,
+  onSelectFinalWinner,
+  onSelectThirdPlace,
   isAdmin,
-  onToggleQualified,
-  onSelectGroupFinalWinner,
 }: {
-  group: Group;
+  final: Match;
+  thirdPlace: Slot;
+  onSelectFinalWinner?: (team: string) => void;
+  onSelectThirdPlace?: () => void;
   isAdmin?: boolean;
-  onToggleQualified?: (groupId: string, team: string) => void;
-  onSelectGroupFinalWinner?: (groupId: string, team: string) => void;
 }) {
-  const isLocked = !!group.finalMatch.winner;
-
+  const slot = (team?: string): Slot => ({
+    name: team,
+    won: !!team && final.winner === team,
+    onClick:
+      isAdmin && team && onSelectFinalWinner
+        ? () => onSelectFinalWinner(team)
+        : undefined,
+  });
   return (
-    <div className="relative flex items-center gap-4 md:gap-12">
-      {/* Team selection column */}
-      <div className="flex flex-col gap-3">
-        {group.teams.map((team) => (
-          <TeamPill
-            key={team}
-            name={team}
-            isWinner={group.qualified.includes(team)}
-            onClick={
-              isAdmin && !isLocked
-                ? () => onToggleQualified && onToggleQualified(group.id, team)
-                : undefined
-            }
-            disabled={isLocked}
+    <>
+      <RoundColumn title="Final">
+        <Row>
+          <MatchCard accent slots={[slot(final.team1), slot(final.team2)]} />
+          <div className="absolute inset-x-0 top-full -mt-2 pt-6">
+            <MatchCard
+              label="3er Lugar"
+              slots={[
+                {
+                  ...thirdPlace,
+                  onClick: isAdmin ? onSelectThirdPlace : undefined,
+                },
+              ]}
+            />
+          </div>
+        </Row>
+      </RoundColumn>
+      <Links from={1} to={1} />
+      <RoundColumn title="Campeón">
+        <Row>
+          <MatchCard
+            accent
+            slots={[{ name: final.winner, won: !!final.winner }]}
           />
-        ))}
-      </div>
-
-      {/* Group Final match (always visible) */}
-      <div className="relative flex flex-col gap-3">
-        <TeamPill
-          name={group.finalMatch.team1 ?? ""}
-          isWinner={group.finalMatch.winner === group.finalMatch.team1}
-          onClick={
-            isAdmin && group.finalMatch.team1 && !isLocked
-              ? () =>
-                  onSelectGroupFinalWinner &&
-                  onSelectGroupFinalWinner(group.id, group.finalMatch.team1!)
-              : undefined
-          }
-          disabled={isLocked}
-        />
-        <span className="text-center text-[10px] font-bold text-slate-500">
-          VS
-        </span>
-        <TeamPill
-          name={group.finalMatch.team2 ?? ""}
-          isWinner={group.finalMatch.winner === group.finalMatch.team2}
-          onClick={
-            isAdmin && group.finalMatch.team2 && !isLocked
-              ? () =>
-                  onSelectGroupFinalWinner &&
-                  onSelectGroupFinalWinner(group.id, group.finalMatch.team2!)
-              : undefined
-          }
-          disabled={isLocked}
-        />
-      </div>
-    </div>
+        </Row>
+      </RoundColumn>
+    </>
   );
 }
 
@@ -225,81 +292,55 @@ function BeginnersLayout({
   onToggleQualified?: (groupId: string, team: string) => void;
   onSelectGroupFinalWinner?: (groupId: string, team: string) => void;
 }) {
+  const n = data.groups.length;
   return (
-    <div className="flex w-full flex-col items-center gap-10 px-2 pb-12 md:gap-20 md:px-4">
-      <div className="flex w-full max-w-7xl flex-col items-center gap-10 md:gap-20 md:flex-row md:items-start md:justify-center">
-        {/* Left: Groups stacked vertically */}
-        <div className="flex flex-col gap-8 md:gap-14">
-          {data.groups.map((g) => (
-            <GroupBracket
-              key={g.id}
-              group={g}
-              isAdmin={isAdmin}
-              onToggleQualified={onToggleQualified}
-              onSelectGroupFinalWinner={onSelectGroupFinalWinner}
+    <BracketScroller>
+      <RoundColumn title="Grupos">
+        {data.groups.map((g) => (
+          <Row key={g.id}>
+            <MatchCard
+              label={g.name}
+              slots={g.teams.map((team) => ({
+                name: team,
+                won: g.qualified.includes(team),
+                disabled: !!g.finalMatch.winner,
+                onClick: isAdmin
+                  ? () => onToggleQualified?.(g.id, team)
+                  : undefined,
+              }))}
             />
-          ))}
-        </div>
-
-        {/* Right column: Final + Third Place stacked */}
-        <div className="flex flex-col items-center gap-10">
-          {/* Final card with winner to the right */}
-          <div className="relative flex items-center gap-4 md:gap-8">
-            <div className="flex flex-col items-center gap-2">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-blue-400">
-                Final
-              </h3>
-              <div className="flex flex-col items-center gap-1">
-                <TeamPill
-                  name={data.final.team1 ?? ""}
-                  variant="blue"
-                  isWinner={data.final.winner === data.final.team1}
-                  onClick={
-                    isAdmin && data.final.team1
-                      ? () =>
-                          onSetFinalWinner && onSetFinalWinner(data.final.team1!)
-                      : undefined
-                  }
-                />
-                <span className="text-[10px] font-bold text-slate-500">VS</span>
-                <TeamPill
-                  name={data.final.team2 ?? ""}
-                  variant="blue"
-                  isWinner={data.final.winner === data.final.team2}
-                  onClick={
-                    isAdmin && data.final.team2
-                      ? () =>
-                          onSetFinalWinner && onSetFinalWinner(data.final.team2!)
-                      : undefined
-                  }
-                />
-              </div>
-            </div>
-            {/* Winner to the right */}
-            {data.final.winner && (
-              <div className="relative flex items-center gap-4">
-                <div className="absolute right-full top-1/2 h-[1px] w-8 -translate-y-1/2 bg-blue-600 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
-                <div className="flex flex-col items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">
-                    Campeón
-                  </span>
-                  <TeamPill name={data.final.winner} isWinner />
-                </div>
-              </div>
-            )}
-          </div>
-          {/* Third place directly below the final */}
-          <div className="flex flex-col items-center gap-2">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              3er Lugar
-            </h3>
-            <TeamPill name={data.thirdPlaceTeam ?? ""} variant="blue" />
-          </div>
-        </div>
-      </div>
-    </div>
+          </Row>
+        ))}
+      </RoundColumn>
+      <Links from={n} to={n} />
+      <RoundColumn title="Final de grupo">
+        {data.groups.map((g) => (
+          <Row key={g.id}>
+            <MatchCard
+              slots={[g.finalMatch.team1, g.finalMatch.team2].map((team) => ({
+                name: team,
+                won: !!team && g.finalMatch.winner === team,
+                disabled: !!g.finalMatch.winner,
+                onClick:
+                  isAdmin && team
+                    ? () => onSelectGroupFinalWinner?.(g.id, team)
+                    : undefined,
+              }))}
+            />
+          </Row>
+        ))}
+      </RoundColumn>
+      <Links from={n} to={1} />
+      <FinalColumn
+        final={data.final}
+        isAdmin={isAdmin}
+        onSelectFinalWinner={onSetFinalWinner}
+        thirdPlace={{ name: data.thirdPlaceTeam }}
+      />
+    </BracketScroller>
   );
 }
+
 function AdvancedLayout({
   data,
   isAdmin,
@@ -317,137 +358,71 @@ function AdvancedLayout({
 }) {
   const quarterfinals = data.rounds[0];
   const semifinals = data.rounds[1];
-
-  // Third place helpers to avoid optional access warnings
-  const thirdPlaceName = data.thirdPlace?.winner ?? data.thirdPlace?.team1;
-  const thirdPlaceClickable = !!(isAdmin && thirdPlaceName && onSelectThirdPlace);
-
-  // safe handler that avoids non-null assertions
-  const handleThirdPlaceClick = () => {
-    if (thirdPlaceClickable && onSelectThirdPlace && thirdPlaceName) {
-      onSelectThirdPlace(thirdPlaceName);
-    }
-  };
-
   if (!quarterfinals || !semifinals) return null;
 
+  const n = quarterfinals.matches.length;
+  const thirdName = data.thirdPlace?.winner ?? data.thirdPlace?.team1;
+
   return (
-    <div className="flex w-full max-w-7xl flex-col items-center gap-10 md:flex-row md:items-start md:justify-center md:gap-12">
-      {/* Left: Quarter -> Semifinal chains */}
-      <div className="flex flex-col gap-8">
-        {quarterfinals.matches.slice(0, 3).map((qMatch, idx) => {
-          const semiMatch = semifinals.matches[idx];
-          const semiWinner = semiMatch?.winner ?? semiMatch?.team1 ?? undefined;
-          return (
-            <div key={qMatch.id} className="relative flex items-center gap-6 md:gap-16">
-              {/* Quarter block */}
-              <div className="relative">
-                <MatchNode
-                  match={qMatch}
-                  roundIndex={0}
-                  onSelectTeam={
-                    isAdmin
-                      ? (team) =>
-                          onSelectQuarterWinner &&
-                          onSelectQuarterWinner(qMatch.id, team)
-                      : undefined
-                  }
-                />
-              </div>
-              {/* Semifinal single team (select to mark as winner) */}
-              <div className="relative">
-                <TeamPill
-                  name={semiWinner ?? ""}
-                  isWinner={!!semiMatch?.winner}
-                  onClick={
-                    isAdmin && semiMatch?.team1
-                      ? () =>
-                          onSelectSemifinalWinner &&
-                          onSelectSemifinalWinner(semiMatch.id, semiMatch.team1!)
-                      : undefined
-                  }
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Final & Third Place column */}
-      <div className="relative flex flex-col items-center gap-12 pt-4">
-        {/* Final card with winner to the right */}
-        <div className="relative flex items-center gap-4 md:gap-8">
-          <div className="flex flex-col items-center gap-2">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-blue-400">
-              Final
-            </h3>
-            <div className="flex flex-col items-center gap-1">
-              <TeamPill
-                name={data.final.team1 ?? ""}
-                variant="blue"
-                isWinner={data.final.winner === data.final.team1}
-                onClick={
-                  isAdmin && data.final.team1
-                    ? () =>
-                        onSelectFinalWinner &&
-                        onSelectFinalWinner(data.final.team1!)
-                    : undefined
-                }
-              />
-              <span className="text-[10px] font-bold text-slate-500">VS</span>
-              <TeamPill
-                name={data.final.team2 ?? ""}
-                variant="blue"
-                isWinner={data.final.winner === data.final.team2}
-                onClick={
-                  isAdmin && data.final.team2
-                    ? () =>
-                        onSelectFinalWinner &&
-                        onSelectFinalWinner(data.final.team2!)
-                    : undefined
-                }
-              />
-            </div>
-          </div>
-
-          {/* Winner to the right */}
-          {data.final.winner && (
-            <div className="relative flex items-center gap-4">
-              <div className="absolute right-full top-1/2 h-[1px] w-8 -translate-y-1/2 bg-blue-600 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">
-                  Campeón
-                </span>
-                <TeamPill name={data.final.winner} isWinner />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Third place directly below */}
-        {data.thirdPlace && (
-          <div className="flex flex-col items-center gap-2">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              3er Lugar
-            </h3>
-            <TeamPill
-              name={thirdPlaceName ?? ""}
-              isWinner={!!data.thirdPlace?.winner}
-              onClick={thirdPlaceClickable ? handleThirdPlaceClick : undefined}
+    <BracketScroller>
+      <RoundColumn title="Cuartos">
+        {quarterfinals.matches.map((q) => (
+          <Row key={q.id}>
+            <MatchCard
+              slots={(
+                q.teams ?? [q.team1, q.team2, q.team3].filter(Boolean)
+              ).map((team) => ({
+                name: team,
+                won: q.winner === team,
+                onClick: isAdmin
+                  ? () => onSelectQuarterWinner?.(q.id, team!)
+                  : undefined,
+              }))}
             />
-          </div>
-        )}
-      </div>
-    </div>
+          </Row>
+        ))}
+      </RoundColumn>
+      <Links from={n} to={n} />
+      <RoundColumn title="Semifinales">
+        {semifinals.matches.map((s) => (
+          <Row key={s.id}>
+            <MatchCard
+              slots={[
+                {
+                  name: s.winner ?? s.team1,
+                  won: !!s.winner,
+                  onClick:
+                    isAdmin && s.team1
+                      ? () => onSelectSemifinalWinner?.(s.id, s.team1!)
+                      : undefined,
+                },
+              ]}
+            />
+          </Row>
+        ))}
+      </RoundColumn>
+      <Links from={n} to={1} />
+      <FinalColumn
+        final={data.final}
+        isAdmin={isAdmin}
+        onSelectFinalWinner={onSelectFinalWinner}
+        thirdPlace={{ name: thirdName, won: !!data.thirdPlace?.winner }}
+        onSelectThirdPlace={
+          thirdName ? () => onSelectThirdPlace?.(thirdName) : undefined
+        }
+      />
+    </BracketScroller>
   );
 }
 
 export default function BracketsClient({ userRole }: { userRole?: Role }) {
   const [category, setCategory] = useState<Category>(BracketCategory.BEGINNERS);
-  const [beginnersData, setBeginnersData] =
-    useState<BeginnersBracketData>(buildBeginnersData([]));
-  const [advancedData, setAdvancedData] =
-    useState<AdvancedBracketData>(buildAdvancedData([]));
+  const [beginnersData, setBeginnersData] = useState<BeginnersBracketData>(
+    buildBeginnersData([]),
+  );
+  const [advancedData, setAdvancedData] = useState<AdvancedBracketData>(
+    buildAdvancedData([]),
+  );
 
   // Check if user is admin
   const isAdmin = userRole === Role.ADMIN;
@@ -508,6 +483,11 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
       setAdvancedData(savedAdvancedData as unknown as AdvancedBracketData);
     }
   }, [savedAdvancedData]);
+
+  const { data: scoreboard } = api.scoreboard.getScoreboard.useQuery();
+  const scores = Object.fromEntries(
+    (scoreboard ?? []).map((t) => [t.teamName, t.total]),
+  );
 
   const saveBracket = api.bracket.saveBracket.useMutation({
     onSuccess: () => {
@@ -728,15 +708,12 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
         {/* Category Toggle */}
         <div className="-mt-10 flex rounded-full border border-white/10 bg-[#1a1a1a] p-1.5">
           {(
-            [
-              BracketCategory.BEGINNERS,
-              BracketCategory.ADVANCED,
-            ] as Category[]
+            [BracketCategory.BEGINNERS, BracketCategory.ADVANCED] as Category[]
           ).map((cat) => (
             <button
               key={cat}
               onClick={() => setCategory(cat)}
-              className={`rounded-full px-5 py-2.5 text-xs font-bold md:px-8 md:py-3 md:text-sm uppercase tracking-wider transition-all duration-300 ${category === cat ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" : "text-slate-500 hover:bg-white/5 hover:text-white"} `}
+              className={`rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-300 md:px-8 md:py-3 md:text-sm ${category === cat ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" : "text-slate-500 hover:bg-white/5 hover:text-white"} `}
             >
               {cat}
             </button>
@@ -767,24 +744,26 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
         )}
       </div>
       {/* Main Content Area */}
-      {category === BracketCategory.BEGINNERS ? (
-        <BeginnersLayout
-          data={beginnersData}
-          isAdmin={isAdmin}
-          onSetFinalWinner={handleBeginnersFinalWinner}
-          onToggleQualified={handleToggleQualified}
-          onSelectGroupFinalWinner={handleGroupFinalWinner}
-        />
-      ) : (
-        <AdvancedLayout
-          data={advancedData}
-          isAdmin={isAdmin}
-          onSelectQuarterWinner={handleAdvancedMatchWinner}
-          onSelectSemifinalWinner={handleAdvancedSemifinalWinner}
-          onSelectFinalWinner={handleAdvancedFinalWinner}
-          onSelectThirdPlace={handleAdvancedThirdPlace}
-        />
-      )}
+      <ScoresContext.Provider value={scores}>
+        {category === BracketCategory.BEGINNERS ? (
+          <BeginnersLayout
+            data={beginnersData}
+            isAdmin={isAdmin}
+            onSetFinalWinner={handleBeginnersFinalWinner}
+            onToggleQualified={handleToggleQualified}
+            onSelectGroupFinalWinner={handleGroupFinalWinner}
+          />
+        ) : (
+          <AdvancedLayout
+            data={advancedData}
+            isAdmin={isAdmin}
+            onSelectQuarterWinner={handleAdvancedMatchWinner}
+            onSelectSemifinalWinner={handleAdvancedSemifinalWinner}
+            onSelectFinalWinner={handleAdvancedFinalWinner}
+            onSelectThirdPlace={handleAdvancedThirdPlace}
+          />
+        )}
+      </ScoresContext.Provider>
     </div>
   );
 }
