@@ -8,6 +8,7 @@ import { adminRouter } from "./routers/admin";
 import { configRouter } from "./routers/config";
 import { interviewerRouter } from "./routers/interviewer";
 import { authRouter } from "./routers/auth";
+import { scheduleRouter } from "./routers/schedule";
 /**
  * This is the primary router for your server.
  *
@@ -23,6 +24,7 @@ export const appRouter = createTRPCRouter({
   config: configRouter,
   interviewer: interviewerRouter,
   bracket: bracketRouter,
+  schedule: scheduleRouter,
 });
 
 // export type definition of API
