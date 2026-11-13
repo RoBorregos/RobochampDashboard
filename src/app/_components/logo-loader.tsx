@@ -15,7 +15,7 @@ export default function LogoLoader() {
         @keyframes rl-draw { 0% { stroke-dashoffset: 1 } 45%,100% { stroke-dashoffset: 0 } }
         @keyframes rl-fill { 0%,15% { transform: translateY(0) } 55%,100% { transform: translateY(-470px) } }
         @keyframes rl-eye { 0%,50% { opacity: 0; transform: scale(.2) } 65% { opacity: 1; transform: scale(1.35) } 75%,100% { opacity: 1; transform: scale(1) } }
-        .rl-trace { fill: none; stroke: #f4f4f2; stroke-width: 1.6; stroke-dasharray: 1; animation: rl-draw 1.6s cubic-bezier(.7,0,.2,1) infinite }
+        .rl-trace { fill: none; stroke: #f4f4f2; stroke-width: 4; stroke-linejoin: round; stroke-dasharray: 1; animation: rl-draw 1.6s cubic-bezier(.7,0,.2,1) infinite }
         .rl-clip { animation: rl-fill 1.6s cubic-bezier(.7,0,.2,1) infinite }
         .rl-eye { fill: #5fd4ff; transform-box: fill-box; transform-origin: center; animation: rl-eye 1.6s infinite }
         @media (prefers-reduced-motion: reduce) { .rl-trace,.rl-clip,.rl-eye { animation: none } .rl-trace { stroke-dashoffset: 0 } .rl-clip { transform: translateY(-470px) } }
@@ -26,7 +26,7 @@ export default function LogoLoader() {
             <rect className="rl-clip" x="0" y="510" width="600" height="470" />
           </clipPath>
         </defs>
-        <path className="rl-trace" pathLength={1} vectorEffect="non-scaling-stroke" d={FILL} />
+        <path className="rl-trace" pathLength={1} d={FILL} />
         <path fill="#f4f4f2" fillRule="evenodd" clipPath="url(#rl-clip)" d={FILL} />
         <path className="rl-eye" d={EYE} />
       </svg>
