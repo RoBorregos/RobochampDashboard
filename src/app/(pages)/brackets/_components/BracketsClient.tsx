@@ -3,6 +3,7 @@
 import { BracketCategory, Role } from "@prisma/client";
 import { useState, useEffect } from "react";
 import { api } from "~/trpc/react";
+import LogoLoader from "~/app/_components/logo-loader";
 import Header from "~/app/_components/header";
 
 type Category = BracketCategory;
@@ -710,6 +711,14 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
       return { ...prev, groups, final, thirdPlaceTeam };
     });
   };
+
+  if (
+    savedBeginnersData === undefined ||
+    savedAdvancedData === undefined ||
+    !beginnersTeams ||
+    !advancedTeams
+  )
+    return <LogoLoader />;
 
   return (
     <div className="flex min-h-screen flex-col items-center overflow-auto bg-[#0a0a0a] p-4 pt-24 text-white md:p-8 md:pt-32">

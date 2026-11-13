@@ -2,6 +2,7 @@
 
 import Header from "~/app/_components/header";
 import { api } from "~/trpc/react";
+import LogoLoader from "~/app/_components/logo-loader";
 
 type ScheduleChallenge = {
   name: string;
@@ -35,18 +36,7 @@ export default function SchedulePage() {
           .size
       : 0;
 
-  if (isLoading) {
-    return (
-      <main className="mt-[4rem] min-h-screen bg-black text-white">
-        <div className="md:pb-10">
-          <Header title="Schedules" subtitle="Loading schedules..." />
-        </div>
-        <div className="flex h-64 items-center justify-center">
-          <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-roboblue" />
-        </div>
-      </main>
-    );
-  }
+  if (isLoading) return <LogoLoader />;
 
   if (teams.length === 0) {
     return (

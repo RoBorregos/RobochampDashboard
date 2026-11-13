@@ -4,6 +4,7 @@ import React from "react";
 import Footer from "../../_components/footer";
 import Header from "../../_components/header";
 import { api } from "~/trpc/react";
+import LogoLoader from "~/app/_components/logo-loader";
 import Title from "../../_components/title";
 
 type ProcessedTeam = {
@@ -104,6 +105,8 @@ export default function ScoreboardPage() {
 
     return teams.sort((a, b) => b.accumulated - a.accumulated);
   }, [scores]);
+
+  if (isLoading || competitionStarted === undefined) return <LogoLoader />;
 
   if (!competitionStarted) {
     return (

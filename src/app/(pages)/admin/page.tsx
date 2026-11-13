@@ -2,6 +2,7 @@
 
 import Header from "~/app/_components/header";
 import { api } from "~/trpc/react";
+import LogoLoader from "~/app/_components/logo-loader";
 import { useState } from "react";
 import TeamManagement from "~/app/_components/admin/TeamManagement";
 import TeamStatusManagement from "~/app/_components/admin/TeamStatusManagement";
@@ -33,6 +34,9 @@ export default function AdminPage() {
     void refetchScheduleTeams();
     void refetchConfig();
   };
+
+  if (!users || !teams || !pendingRequests || !scheduleTeams || !config)
+    return <LogoLoader />;
 
   const activeTeams = scheduleTeams?.filter((team) => team.isActive) ?? [];
 
