@@ -13,11 +13,14 @@ import Header from "rbrgs/app/_components/header";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { Role } from "@prisma/client";
+import LogoLoader from "~/app/_components/logo-loader";
 
 export default function JudgePage() {
   const [selected, setSelected] = useState("Sin seleccionar");
 
   const session = useSession();
+
+  if (session.status === "loading") return <LogoLoader />;
 
   if (
     session.data?.user?.role !== Role.ADMIN &&
