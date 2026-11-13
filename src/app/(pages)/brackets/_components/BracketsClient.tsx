@@ -113,7 +113,7 @@ function MatchCard({
   const scores = useContext(ScoresContext);
   return (
     <div className="w-full">
-      {(label || decided) && (
+      {(!!label || decided) && (
         <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
           <span>{label}</span>
           {decided && (
@@ -141,7 +141,11 @@ function MatchCard({
               } ${clickable ? "cursor-pointer hover:bg-white/5" : "cursor-default"}`}
             >
               <span className="truncate">
-                {s.name || <span className="text-slate-600">—</span>}
+                {s.name?.length ? (
+                  s.name
+                ) : (
+                  <span className="text-slate-600">—</span>
+                )}
               </span>
               {s.name && (
                 <span className="flex items-center gap-1 tabular-nums">
