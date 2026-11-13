@@ -8,6 +8,8 @@ const matchSchema = z.object({
   team1: z.string().optional(),
   team2: z.string().optional(),
   team3: z.string().optional(),
+  // Quarterfinal pools can hold more than three teams.
+  teams: z.array(z.string()).optional(),
   winner: z.string().optional(),
 });
 
@@ -39,6 +41,18 @@ const beginnersBracketDataSchema = z.object({
 });
 
 export const bracketRouter = createTRPCRouter({
+  // Team names per category, from seleccion2026.csv (see prisma/seed-selection.ts).
+  getTeams: publicProcedure
+    .input(z.object({ category: z.nativeEnum(BracketCategory) }))
+    .query(async ({ ctx, input }) => {
+      const teams = await ctx.db.team.findMany({
+        where: { category: input.category },
+        select: { name: true },
+        orderBy: { name: "asc" },
+      });
+      return teams.map((t) => t.name);
+    }),
+
   getBracket: publicProcedure
     .input(z.object({ category: z.nativeEnum(BracketCategory) }))
     .query(async ({ ctx, input }) => {
