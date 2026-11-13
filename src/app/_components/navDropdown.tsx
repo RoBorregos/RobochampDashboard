@@ -16,7 +16,8 @@ export default function NavDropdown({ session }: { session: Session | null }) {
   return (
     <div className="block justify-self-end lg:hidden">
       <Sheet>
-        <SheetTrigger asChild>
+        {/* Real button: bare <img> triggers don't receive taps reliably on iOS */}
+        <SheetTrigger aria-label="Open menu" className="p-3">
           <Image src={menu as StaticImport} alt="" className="flex h-5 w-5" />
         </SheetTrigger>
         <SheetContent
