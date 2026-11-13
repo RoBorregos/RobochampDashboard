@@ -123,6 +123,25 @@ model Team {
   challengeC     ChallengeC[]
   rounds         Round[]
   members        User[]
+  // Filled from seleccion2026.csv (npm run db:seed-selection).
+  category       BracketCategory?
+  coach          String?
+  school         String?
+  roster         RosterMember[]
+
+  @@index([category])
+}
+
+// A selected student, as listed in seleccion2026.csv. Separate from User:
+// these people may not have signed in yet.
+model RosterMember {
+  id       String  @id @default(cuid())
+  name     String
+  attended Boolean @default(false)
+  teamId   String
+  team     Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, name])
 }
 
 model Round {
