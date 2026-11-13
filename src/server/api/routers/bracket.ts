@@ -2,42 +2,10 @@ import { z } from "zod";
 import { createTRPCRouter, publicProcedure, adminProcedure } from "rbrgs/server/api/trpc";
 import { Prisma, BracketCategory } from "@prisma/client";
 
-// Schemas
-const matchSchema = z.object({
-  id: z.string(),
-  team1: z.string().optional(),
-  team2: z.string().optional(),
-  team3: z.string().optional(),
-  // Quarterfinal pools can hold more than three teams.
-  teams: z.array(z.string()).optional(),
-  winner: z.string().optional(),
-});
-
-const roundSchema = z.object({
-  name: z.string(),
-  matches: z.array(matchSchema),
-});
-
-const advancedBracketDataSchema = z.object({
-  rounds: z.array(roundSchema),
-  final: matchSchema,
-  thirdPlace: matchSchema.optional(),
-  winner: z.string().optional(),
-});
-
-const groupSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  teams: z.array(z.string()),
-  qualified: z.array(z.string()),
-  finalMatch: matchSchema,
-});
-
-const beginnersBracketDataSchema = z.object({
-  groups: z.array(groupSchema),
-  semifinalists: z.array(z.string()),
-  final: matchSchema,
-  thirdPlaceTeam: z.string(),
+// groups: team names per group (frozen on first save); picks: match id -> winner.
+const bracketDataSchema = z.object({
+  groups: z.array(z.array(z.string())),
+  picks: z.record(z.string()),
 });
 
 export const bracketRouter = createTRPCRouter({
@@ -66,16 +34,10 @@ export const bracketRouter = createTRPCRouter({
 
   saveBracket: adminProcedure
     .input(
-      z.discriminatedUnion("category", [
-        z.object({
-          category: z.literal(BracketCategory.BEGINNERS),
-          payload: beginnersBracketDataSchema,
-        }),
-        z.object({
-          category: z.literal(BracketCategory.ADVANCED),
-          payload: advancedBracketDataSchema,
-        }),
-      ])
+      z.object({
+        category: z.nativeEnum(BracketCategory),
+        payload: bracketDataSchema,
+      })
     )
     .mutation(async ({ ctx, input }) => {
       // Prisma expects InputJsonValue, so we cast the validated payload
