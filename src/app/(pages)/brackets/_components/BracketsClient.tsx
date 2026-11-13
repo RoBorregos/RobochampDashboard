@@ -347,7 +347,8 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
     <div className="flex min-h-screen flex-col items-center overflow-auto bg-[#0a0a0a] p-4 pt-24 text-white md:p-8 md:pt-32">
       <div className="z-10 mb-8 flex w-full max-w-5xl flex-col items-center">
         <Header title="ROBOCHAMP" subtitle={category.toUpperCase()} />
-        <div className="-mt-10 flex rounded-full border border-white/10 bg-[#1a1a1a] p-1.5">
+        {/* relative z-20: the -mt-10 overlap put the positioned Header above these buttons on mobile */}
+        <div className="relative z-20 -mt-10 flex rounded-full border border-white/10 bg-[#1a1a1a] p-1.5">
           {[BracketCategory.BEGINNERS, BracketCategory.ADVANCED].map((cat) => (
             <button
               key={cat}
