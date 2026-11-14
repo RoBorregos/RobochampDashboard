@@ -4,7 +4,7 @@ import fs from "fs";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { invalidateSchedule } from "../schedule";
-import { eventTime, hhmm, syncSchedule } from "rbrgs/lib/bracketSchedule";
+import { eventTime, groupsOf, hhmm, syncSchedule } from "rbrgs/lib/bracketSchedule";
 
 // "HH:MM" on the event day (14 Nov 2026, GMT-6).
 const ComputeDate = ({ date }: { date: string | undefined }) => eventTime(date ?? "00:00");
@@ -107,19 +107,21 @@ export const scheduleManagementRouter = createTRPCRouter({
   generateFromBrackets: adminProcedure
     .input(z.object({ starts: z.record(z.string(), z.array(z.string().regex(/^\d{2}:\d{2}$/))) }).optional())
     .mutation(async ({ ctx, input }) => {
-    const brackets = await ctx.db.bracket.findMany();
-    if (brackets.length === 0)
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Save a bracket first" });
     let runs = 0;
     const warnings: string[] = [];
-    for (const b of brackets) {
-      const groups = (b.data as { groups?: string[][] }).groups ?? [];
-      const r = await syncSchedule(ctx.db, b.category, groups, 0, input?.starts?.[b.category]);
+    for (const c of ["ADVANCED", "BEGINNERS"] as const) {
+      const bracket = await ctx.db.bracket.findUnique({ where: { category: c } });
+      let groups = (bracket?.data as { groups?: string[][] } | undefined)?.groups;
+      if (!groups?.length) {
+        // No bracket yet: schedule the category's teams in default groups (the bracket is not saved).
+        const teams = await ctx.db.team.findMany({ where: { category: c, isActive: true }, select: { name: true }, orderBy: { name: "asc" } });
+        groups = groupsOf(teams.map((t) => t.name));
+        warnings.push(`No ${c} bracket saved: used default groups`);
+      }
+      const r = await syncSchedule(ctx.db, c, groups, 0, input?.starts?.[c]);
       runs += r.runs;
       warnings.push(...r.warnings);
     }
-    for (const c of ["ADVANCED", "BEGINNERS"] as const)
-      if (!brackets.some((b) => b.category === c)) warnings.push(`No ${c} bracket saved, nothing generated for it`);
     invalidateSchedule();
     return { runs, warnings };
   }),
