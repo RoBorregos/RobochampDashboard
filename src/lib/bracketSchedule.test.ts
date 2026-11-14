@@ -2,7 +2,7 @@ import assert from "node:assert";
 import { buildRuns } from "./bracketSchedule";
 
 const g = [["a1", "a2"], ["b1", "b2"], ["c1"], ["d1", "d2"]];
-const { runs } = buildRuns(g, "ADVANCED", new Date(2026, 0, 1));
+const { runs } = buildRuns(g, "ADVANCED");
 const r1 = runs.filter((r) => r.round === 1);
 const at = (t: string) => r1.find((r) => r.team === t)!;
 assert.equal(at("a1").track, "A");
