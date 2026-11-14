@@ -17,6 +17,10 @@ type Row = {
 const TTL_MS = 5000;
 let cache: { at: number; rows: Row[] } | null = null;
 
+export const invalidateSchedule = () => {
+  cache = null;
+};
+
 const score = { teamId: true, roundId: true, points: true } as const;
 
 const trackOf = (name: string) =>
@@ -87,6 +91,6 @@ export const scheduleRouter = createTRPCRouter({
         where: { id: input.id },
         data: { status: input.status },
       });
-      cache = null;
+      invalidateSchedule();
     }),
 });

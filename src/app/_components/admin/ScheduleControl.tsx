@@ -23,6 +23,46 @@ interface ScheduleControlProps {
   refetchConfig: () => void;
 }
 
+type CellData = {
+  id: string;
+  team: string;
+  time: string;
+  initialTime: string;
+  status: string;
+} | null;
+
+// Team, editable current time, and the original time when it was modified.
+function PistaCell({
+  cell,
+  onSave,
+}: {
+  cell: CellData;
+  onSave: (id: string, time: string) => void;
+}) {
+  if (!cell) return <>-</>;
+  const changed = cell.time !== cell.initialTime;
+  return (
+    <div className="space-y-1">
+      <div>{cell.team}</div>
+      <input
+        type="time"
+        key={cell.time}
+        defaultValue={cell.time}
+        onBlur={(e) => {
+          if (e.target.value && e.target.value !== cell.time) onSave(cell.id, e.target.value);
+        }}
+        className={`w-28 rounded bg-gray-600 p-1 text-sm ${changed ? "text-amber-300" : ""}`}
+      />
+      {changed && (
+        <div className="text-xs text-gray-400">was {cell.initialTime}</div>
+      )}
+      {cell.status !== "ON_TIME" && (
+        <div className="text-xs text-gray-400">{cell.status.replace("_", " ")}</div>
+      )}
+    </div>
+  );
+}
+
 export default function ScheduleControl({
   activeTeams,
   config,
@@ -80,6 +120,16 @@ export default function ScheduleControl({
       console.error(error);
     },
   });
+
+  const updateTime = api.admin.updateChallengeTime.useMutation({
+    onSuccess() {
+      void refetchTables();
+    },
+    onError() {
+      toast("Error updating time");
+    },
+  });
+  const saveTime = (id: string, time: string) => updateTime.mutate({ id, time });
 
   const handleRegenerateSchedules = () => {
     regenerateSchedules.mutate({
@@ -308,13 +358,13 @@ export default function ScheduleControl({
                               {slot.time}
                             </td>
                             <td className="border border-gray-600 p-3 text-center">
-                              {slot.pistaA || "-"}
+                              <PistaCell cell={slot.pistaA} onSave={saveTime} />
                             </td>
                             <td className="border border-gray-600 p-3 text-center">
-                              {slot.pistaB || "-"}
+                              <PistaCell cell={slot.pistaB} onSave={saveTime} />
                             </td>
                             <td className="border border-gray-600 p-3 text-center">
-                              {slot.pistaC || "-"}
+                              <PistaCell cell={slot.pistaC} onSave={saveTime} />
                             </td>
                           </tr>
                         ))}
