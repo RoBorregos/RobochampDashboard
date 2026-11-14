@@ -25,7 +25,7 @@ const NAV_PX = 64; // navbar
 const TOP_PX = 73; // schedule title/controls bar
 // Row height is derived so exactly VISIBLE_ROWS fill the window under the bars (no page scroll, no dead space).
 const rowFor = (vh: number) =>
-  Math.max(32, Math.min(64, Math.floor((vh - NAV_PX - TOP_PX - 36) / VISIBLE_ROWS)));
+  Math.max(32, Math.min(64, Math.floor((vh - NAV_PX - TOP_PX - 72) / VISIBLE_ROWS)));
 const HEAD_PX = 36;
 const OVERSCAN = 10; // extra rows rendered above/below the window
 const STAR_KEY = "schedule-starred-teams";
@@ -309,6 +309,9 @@ export default function SchedulePage() {
           )}
         </div>
       </div>
+      <p className="h-9 pt-1 text-right font-sans text-lg font-bold leading-7 text-white">
+        robochamp.roborregos.mx/schedule
+      </p>
       </div>
 
     </div>
