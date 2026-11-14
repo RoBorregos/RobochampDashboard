@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import Select from "react-select";
@@ -43,7 +43,7 @@ const CATEGORIES = [
   { value: "ADVANCED", label: "Avanzados" },
 ] as const;
 
-export const FormChallengeMars = () => {
+export const FormChallengeMars = ({ teamId = "" }: { teamId?: string }) => {
   const form = useForm<FormData>({
     resolver: zodResolver(marsSchema),
     defaultValues: {
@@ -72,6 +72,11 @@ export const FormChallengeMars = () => {
   );
 
   const { data: teamIds, isLoading } = api.team.getTeamIds.useQuery();
+  // A run picked from the judge's assignment panel pre-fills the team.
+  useEffect(() => {
+    if (teamId) form.setValue("genericFormSchema.teamId", teamId);
+  }, [teamId, form]);
+  const options = teamIds?.map((t) => ({ value: t.id, label: t.name })) ?? [];
   const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
 
   const deleteEvaluation = api.judge.roundMarsDelete.useMutation({
@@ -195,11 +200,12 @@ export const FormChallengeMars = () => {
         <FormField
           control={form.control}
           name="genericFormSchema.teamId"
-          render={() => (
+          render={({ field }) => (
             <FormItem>
               <FormLabel>Team</FormLabel>
               <FormControl>
                 <Select
+                  value={options.find((o) => o.value === field.value) ?? null}
                   isLoading={isLoading}
                   isClearable
                   isSearchable
@@ -207,7 +213,7 @@ export const FormChallengeMars = () => {
                   onChange={(option) =>
                     form.setValue("genericFormSchema.teamId", option?.value ?? "")
                   }
-                  options={teamIds?.map((t) => ({ value: t.id, label: t.name })) ?? []}
+                  options={options}
                   styles={{
                     control: (p) => ({ ...p, backgroundColor: "black", cursor: "pointer" }),
                     menu: (p) => ({ ...p, backgroundColor: "black" }),

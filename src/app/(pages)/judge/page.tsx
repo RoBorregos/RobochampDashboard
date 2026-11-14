@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { Role } from "@prisma/client";
 import LogoLoader from "~/app/_components/logo-loader";
+import { JudgeRuns } from "./JudgeRuns";
 
 export default function JudgePage() {
   const [selected, setSelected] = useState("Sin seleccionar");
@@ -46,6 +47,7 @@ export default function JudgePage() {
         <Header title="Judge" subtitle="" />
       </div>
       <div className="p-2">
+        <JudgeRuns />
         <h1 className="mb-5 text-center text-4xl">Seleccionar Reto</h1>
         <div className="mx-auto lg:w-1/2">
           <Select
