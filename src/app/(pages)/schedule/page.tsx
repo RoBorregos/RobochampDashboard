@@ -166,11 +166,11 @@ export default function SchedulePage() {
   const end = Math.min(rows.length, topRow + VISIBLE_ROWS + 1 + OVERSCAN);
 
   const btn =
-    "rounded border border-gray-700 px-3 py-1 text-sm text-white hover:border-roboblue hover:text-roboblue";
+    "rounded border border-gray-700 px-3 py-1 text-sm text-[#dfdfdf] hover:border-roboblue hover:text-roboblue";
 
   return (
     // Whole page is exactly one window tall: the list's scrollbar is the only one, like everyuuid.com.
-    <div className="box-border h-[100dvh] overflow-hidden bg-black pt-[4rem] text-white">
+    <div className="box-border h-[100dvh] overflow-hidden bg-black pt-[4rem] text-[#dfdfdf]">
     <div>
       <div className="border-b border-roboblue px-4 py-2">
         <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-2">
@@ -259,7 +259,7 @@ export default function SchedulePage() {
                 }`}
               >
                 <Index n={i + 1} />
-                <span className="tabular-nums text-white">{hhmm(r.time)}</span>
+                <span className="tabular-nums text-[#dfdfdf]">{hhmm(r.time)}</span>
                 <span className="truncate uppercase">{r.team}</span>
                 <span className="text-roboblue">{r.track}</span>
                 <span className={s.cls}>
