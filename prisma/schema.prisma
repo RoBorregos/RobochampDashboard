@@ -153,12 +153,23 @@ model Round {
   team       Team?       @relation(fields: [teamId], references: [id], onDelete: Cascade)
 }
 
+enum ScheduleStatus {
+  ON_TIME
+  DELAYED
+  IN_PREPARATION
+  IN_CALIBRATION
+  IN_ROUND
+  FINALIZED
+  CANCELLED
+}
+
 model Challenge {
-  id      String   @id @default(cuid())
+  id      String           @id @default(cuid())
   name    String
   time    DateTime
+  status  ScheduleStatus   @default(ON_TIME)
   roundId String
-  round   Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  round   Round            @relation(fields: [roundId], references: [id], onDelete: Cascade)
 }
 
 model ChallengeA {
