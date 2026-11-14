@@ -9,13 +9,14 @@ import Title from "../../_components/title";
 import { useSession } from "next-auth/react";
 import { Role } from "@prisma/client";
 import { toast } from "sonner";
+import Obfuscated from "~/app/_components/Obfuscated";
 
 type ProcessedTeam = {
   teamId: string;
   teamName: string;
   rounds: Record<string, unknown> | Record<number, unknown>;
   total?: number;
-  lastScore: number;
+  lastScore: number | null;
   accumulated: number;
   category?: string | null;
   group?: string | null;
@@ -119,7 +120,7 @@ export default function ScoreboardPage() {
       const lastScoreFromRounds =
         lastRound !== null ? extractScore(roundsRaw[String(lastRound)]) : 0;
       const lastScoreFromServer =
-        typeof teamObj.lastScore === "number" ? teamObj.lastScore : undefined;
+        typeof teamObj.lastScore === "number" || teamObj.lastScore === null ? teamObj.lastScore : undefined;
       const lastScore =
         typeof lastScoreFromServer === "number"
           ? lastScoreFromServer
@@ -200,7 +201,7 @@ export default function ScoreboardPage() {
                               </span>
                             )}
                           </td>
-                          <td className="p-4 text-right">{team.lastScore}</td>
+                          <td className="p-4 text-right">{team.lastScore ?? <Obfuscated />}</td>
                           <td className="p-4 text-right font-semibold">
                             {team.total ?? team.accumulated}
                           </td>
@@ -280,7 +281,7 @@ export default function ScoreboardPage() {
                               </div>
                             )}
                           </td>
-                  <td className="p-4 text-right">{team.lastScore}</td>
+                  <td className="p-4 text-right">{team.lastScore ?? <Obfuscated />}</td>
                   <td className="p-4 text-right font-semibold">
                     {team.total ?? team.accumulated}
                   </td>

@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import LogoLoader from "~/app/_components/logo-loader";
 import Header from "~/app/_components/header";
 import { makeGroups } from "rbrgs/lib/makeGroups";
+import Obfuscated from "~/app/_components/Obfuscated";
 
 
 type Data = { groups: string[][]; picks: Record<string, string>; times?: Record<string, string> };
@@ -48,7 +49,7 @@ function MatchCard({
   slots: Slot[];
   label?: string;
   accent?: boolean;
-  scores: Record<string, number>;
+  scores: Record<string, number | null>;
 }) {
   const decided = slots.some((s) => s.won);
   return (
@@ -93,7 +94,7 @@ function MatchCard({
                 </span>
                 {s.name && (
                   <span className="flex items-center gap-1 tabular-nums">
-                    {scores[s.name] ?? 0}
+                    {scores[s.name] === null ? <Obfuscated /> : (scores[s.name] ?? 0)}
                     <span
                       className={`w-2 text-xs text-white ${s.won ? "" : "invisible"}`}
                     >
@@ -182,8 +183,8 @@ function CategoryBracket({
 }: {
   data: Data;
   scores: Record<string, number>;
-  semiScores: Record<string, number>;
-  finalScores: Record<string, number>;
+  semiScores: Record<string, number | null>;
+  finalScores: Record<string, number | null>;
   onPick?: (id: string, team: string) => void;
   onSwap?: (a: string, b: string) => void;
 }) {
@@ -291,8 +292,8 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
     scoreboard.map((t) => [t.teamName, t.total]),
   );
   // Semi and final are independent scores, not added to the group total.
-  const semiScores = Object.fromEntries(scoreboard.map((t) => [t.teamName, t.semi ?? 0]));
-  const finalScores = Object.fromEntries(scoreboard.map((t) => [t.teamName, t.final ?? 0]));
+  const semiScores = Object.fromEntries(scoreboard.map((t) => [t.teamName, t.semi === null ? null : (t.semi ?? 0)]));
+  const finalScores = Object.fromEntries(scoreboard.map((t) => [t.teamName, t.final === null ? null : (t.final ?? 0)]));
 
   // Clicking the selected team again unselects it.
   const onPick = (id: string, team: string) => {

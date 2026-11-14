@@ -11,6 +11,8 @@ type Row = {
   track: string;
   status: ScheduleStatus;
   points: number | null;
+  round: number;
+  hidden?: boolean;
 };
 
 // shortcut: per-instance memory cache; on serverless each instance has its own,
@@ -80,6 +82,7 @@ async function loadRows(): Promise<Row[]> {
       track,
       status: ch.status, // stored: only DELAYED/CANCELLED mean anything; the rest is derived
       points: pts,
+      round: ch.round.number,
     });
   }
   cache = { at: Date.now(), rows };
@@ -87,10 +90,13 @@ async function loadRows(): Promise<Row[]> {
 }
 
 export const scheduleRouter = createTRPCRouter({
-  board: publicProcedure.query(async ({ ctx }) => ({
-    rows: withLiveStatus(await loadRows()),
-    canEdit: ctx.session?.user.role === Role.ADMIN || ctx.session?.user.role === Role.JUDGE,
-  })),
+  board: publicProcedure.query(async ({ ctx }) => {
+    const admin = ctx.session?.user.role === Role.ADMIN;
+    const frozen = !admin && ((await ctx.db.config.findFirst())?.freeze ?? false);
+    // Knockout scores (semi 4, final 5) are hidden from non-admins while frozen, as on the scoreboard.
+    const rows = (await loadRows()).map((r) => (frozen && r.round > 3 ? { ...r, points: null, hidden: true } : r));
+    return { rows: withLiveStatus(rows), canEdit: admin || ctx.session?.user.role === Role.JUDGE };
+  }),
 
   setStatus: judgeProcedure
     // ON_TIME = back to automatic

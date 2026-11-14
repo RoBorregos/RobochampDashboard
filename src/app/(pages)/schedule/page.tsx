@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import LogoLoader from "~/app/_components/logo-loader";
+import Obfuscated from "~/app/_components/Obfuscated";
 
 const STATUS = {
   ON_TIME: { label: "ON TIME", cls: "text-green-400" },
@@ -288,7 +289,7 @@ export default function SchedulePage() {
                     s.label
                   )}
                 </span>
-                <span className="text-right tabular-nums">{r.points ?? "—"}</span>
+                <span className="text-right tabular-nums">{r.hidden ? <Obfuscated /> : (r.points ?? "—")}</span>
                 <button
                   onClick={() => toggleStar(r.team)}
                   aria-label={`${starred ? "Unstar" : "Star"} ${r.team}`}
