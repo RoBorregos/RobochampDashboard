@@ -33,7 +33,7 @@ export function CounterButton({
           full
             ? "border-green-500 bg-green-500/10"
             : count > 0
-              ? "border-roboblue bg-roboblue/20"
+              ? "border-amber-400 bg-amber-400/10"
               : "border-neutral-700 bg-neutral-900 hover:border-neutral-500",
         )}
       >
@@ -56,7 +56,7 @@ export function CounterButton({
         aria-label={`Remove one: ${label}`}
         onClick={() => onChange(Math.max(0, count - 1))}
         disabled={count === 0}
-        className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full border border-neutral-600 bg-black text-2xl leading-none hover:border-white disabled:opacity-30"
+        className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full border border-red-500/70 bg-black text-2xl leading-none text-red-400 hover:bg-red-500/20 disabled:opacity-30"
       >
         −
       </button>

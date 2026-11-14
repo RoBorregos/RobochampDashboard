@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Pattern } from "@prisma/client";
+import { MARS_LIMITS, MARS_ROUND_SECONDS } from "./marsScoring";
 
 export const genericDataSchema = z.object({
   obtainedBonus: z.boolean({
@@ -18,6 +19,39 @@ export const genericDataSchema = z.object({
   roundId: z.string().optional(),
   teamId: z.string().min(1),
 });
+
+const marsCount = z.coerce.number().int().min(0);
+
+export const marsSchema = z
+  .object({
+    genericFormSchema: genericDataSchema.extend({
+      roundTimeSeconds: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .max(MARS_ROUND_SECONDS, {
+          message: `roundTimeSeconds must be <= ${MARS_ROUND_SECONDS}`,
+        }),
+    }),
+    category: z.enum(["BEGINNERS", "ADVANCED"]),
+    panels: marsCount,
+    speedBumps: marsCount,
+    stairs: marsCount,
+    seeds: marsCount,
+    seesawCrossed: z.boolean(),
+  })
+  .superRefine((v, ctx) => {
+    const max = MARS_LIMITS[v.category];
+    for (const key of ["panels", "speedBumps", "stairs", "seeds"] as const) {
+      if (v[key] > max[key]) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: `${key} must be <= ${max[key]} for ${v.category}`,
+        });
+      }
+    }
+  });
 
 export const challengeASchema = z.object({
   genericFormSchema: genericDataSchema,

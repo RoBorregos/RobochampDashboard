@@ -6,7 +6,9 @@ import {
   challengeASchema,
   challengeBSchema,
   challengeCSchema,
+  marsSchema,
 } from "rbrgs/lib/schemas";
+import { computeMarsPoints } from "rbrgs/lib/marsScoring";
 
 // Any judge write (score create/delete) may change the public schedule board.
 const judgeProcedure = baseJudgeProcedure.use(async ({ next }) => {
@@ -20,6 +22,29 @@ const computePointsLOP = (_lackOfProgress: number) => {
 };
 
 export const judgeRouter = createTRPCRouter({
+  roundMars: judgeProcedure
+    .input(marsSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { genericFormSchema: g, ...run } = input;
+      return await ctx.db.marsRun.create({
+        data: {
+          ...run,
+          lackOfProgress: g.lackOfProgress,
+          roundTimeSeconds: g.roundTimeSeconds,
+          roundId: g.roundId ?? "",
+          teamId: g.teamId,
+          judgeID: ctx.session.user.id,
+          points: computeMarsPoints(run.category, run, g.roundTimeSeconds),
+        },
+      });
+    }),
+
+  roundMarsDelete: judgeProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.db.marsRun.delete({ where: { id: input.id } });
+    }),
+
   roundA: judgeProcedure
     .input(challengeASchema)
     .mutation(async ({ ctx, input }) => {

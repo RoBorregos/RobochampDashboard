@@ -24,10 +24,11 @@ export const scoreboardRouter = createTRPCRouter({
         name: true,
       },
     });
-    const [challengesA, challengesB, challengesC] = await Promise.all([
+    const [challengesA, challengesB, challengesC, marsRuns] = await Promise.all([
       ctx.db.challengeA.findMany(),
       ctx.db.challengeB.findMany(),
       ctx.db.challengeC.findMany(),
+      ctx.db.marsRun.findMany(),
     ]);
 
     type AnyChallenge = {
@@ -54,7 +55,7 @@ export const scoreboardRouter = createTRPCRouter({
         createdAt: ch.createdAt,
       });
     }
-    for (const ch of challengesC) {
+    for (const ch of [...challengesC, ...marsRuns]) {
       allChallenges.push({
         teamId: ch.teamId,
         roundId: ch.roundId,
