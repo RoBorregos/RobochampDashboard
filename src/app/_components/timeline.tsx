@@ -1,8 +1,19 @@
-import React from "react";
+"use client";
+import React, { useState } from "react";
 import eventsData from "./events.json";
 import TimelineImg from "./timelineImg";
 
+const FILTERS = [
+  { label: "Main (All)", value: "All" },
+  { label: "Beginners", value: "Beginners" },
+  { label: "Advanced", value: "Advanced" },
+] as const;
+
 const Timeline: React.FC = () => {
+  const [filter, setFilter] = useState<string>("All");
+  const rows = eventsData.agenda.filter(
+    (r) => filter === "All" || r.category === "Both" || r.category === filter,
+  );
   return (
     <div className="relative mt-[10rem] flex w-full justify-center">
       <div className="absolute inset-0 grid grid-cols-2 gap-8 px-10 opacity-15">
@@ -16,7 +27,24 @@ const Timeline: React.FC = () => {
         <h2 className="mt-[5rem] break-words text-center text-[2.5rem] font-bold sm:text-[4rem] text-roboblue">
           Event Schedule
         </h2>
-        <div className="mt-[3rem] overflow-x-auto rounded-xl bg-gradient-to-tr from-neutral-950 to-neutral-800">
+        <div className="mt-8 flex flex-wrap justify-center gap-2">
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              aria-pressed={filter === f.value}
+              onClick={() => setFilter(f.value)}
+              className={`rounded-full border border-roboblue px-4 py-2 text-sm font-semibold transition ${
+                filter === f.value
+                  ? "bg-roboblue text-black"
+                  : "text-roboblue hover:bg-roboblue/20"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-6 overflow-x-auto rounded-xl bg-gradient-to-tr from-neutral-950 to-neutral-800">
           <table className="w-full table-auto text-left text-xs sm:text-sm">
             <thead className="text-roboblue">
               <tr>
@@ -27,7 +55,7 @@ const Timeline: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {eventsData.agenda.map((row, index) => (
+              {rows.map((row, index) => (
                 <tr key={index} className="border-t border-neutral-700">
                   <td className="whitespace-nowrap p-3">{row.time}</td>
                   <td className="p-3 font-semibold">{row.activity}</td>
