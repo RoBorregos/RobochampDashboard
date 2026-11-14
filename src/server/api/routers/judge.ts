@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, judgeProcedure as baseJudgeProcedure } from "rbrgs/server/api/trpc";
 import { JudgeColor } from "@prisma/client";
-import { invalidateSchedule } from "./schedule";
+import { invalidateSchedule, trackOf } from "./schedule";
 import {
   challengeASchema,
   challengeBSchema,
@@ -29,6 +29,32 @@ export const judgeRouter = createTRPCRouter({
       select: { judgeColor: true, judgeTrack: true },
     }),
   ),
+
+  // Every scheduled run of the active teams plus the server clock, so the
+  // judge's page can follow the schedule without trusting the device clock.
+  lineup: baseJudgeProcedure.query(async ({ ctx }) => {
+    const rounds = await ctx.db.round.findMany({
+      where: { team: { isActive: true } },
+      select: {
+        number: true,
+        team: { select: { id: true, name: true, category: true } },
+        challenges: { select: { name: true, time: true } },
+      },
+    });
+    const runs = rounds.flatMap((r) =>
+      r.team
+        ? r.challenges.map((c) => ({
+            teamId: r.team!.id,
+            teamName: r.team!.name,
+            category: r.team!.category,
+            round: r.number,
+            track: trackOf(c.name),
+            start: c.time,
+          }))
+        : [],
+    );
+    return { serverNow: new Date(), runs };
+  }),
 
   setColor: baseJudgeProcedure
     .input(z.object({ color: z.nativeEnum(JudgeColor) }))

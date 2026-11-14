@@ -1,5 +1,6 @@
 "use client";
 
+import { mmss, runPhase } from "~/lib/bracketSchedule";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import LogoLoader from "~/app/_components/logo-loader";
@@ -28,6 +29,22 @@ const HEAD_PX = 36;
 const OVERSCAN = 10; // extra rows rendered above/below the window
 const STAR_KEY = "schedule-starred-teams";
 const COLS = "grid grid-cols-[3.5rem_4rem_1fr_3rem_11rem_4rem_2rem] items-center gap-x-4 px-3";
+
+// Calibration / time left for a run that is happening now (derived from its scheduled time).
+function Remaining({ time }: { time: Date }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const p = runPhase(new Date(time).getTime(), now);
+  if (!p) return null;
+  return (
+    <span className={`shrink-0 tabular-nums ${p.label === "RUNNING" ? "text-green-300" : "text-amber-300"}`}>
+      {p.label === "RUNNING" ? "⏱" : "CAL"} {mmss(p.left)}
+    </span>
+  );
+}
 
 // Own component so the 1s tick doesn't re-render the table.
 function Clock() {
@@ -262,7 +279,7 @@ export default function SchedulePage() {
                 <span className="tabular-nums text-[#dfdfdf]">{hhmm(r.time)}</span>
                 <span className="truncate uppercase">{r.team}</span>
                 <span className="text-roboblue">{r.track}</span>
-                <span className={s.cls}>
+                <span className={`${s.cls} flex items-center gap-2`}>
                   {data?.canEdit ? (
                     <select
                       value={r.status}
@@ -281,6 +298,7 @@ export default function SchedulePage() {
                   ) : (
                     s.label
                   )}
+                  {r.status !== "FINALIZED" && r.status !== "CANCELLED" && <Remaining time={r.time} />}
                 </span>
                 <span className="text-right tabular-nums">{r.points ?? "—"}</span>
                 <button

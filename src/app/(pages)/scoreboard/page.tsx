@@ -14,6 +14,8 @@ type ProcessedTeam = {
   total?: number;
   lastScore: number;
   accumulated: number;
+  category?: string | null;
+  group?: string | null;
 };
 
 const TwitchEmbed = ({ channel }: { channel: string }) => (
@@ -100,6 +102,8 @@ export default function ScoreboardPage() {
         total: typeof teamObj.total === "number" ? teamObj.total : undefined,
         lastScore,
         accumulated,
+        category: typeof teamObj.category === "string" ? teamObj.category : null,
+        group: typeof teamObj.group === "string" ? teamObj.group : null,
       };
     });
 
@@ -148,7 +152,14 @@ export default function ScoreboardPage() {
                           key={team.teamId}
                           className="border-b border-gray-700"
                         >
-                          <td className="p-4 font-medium">{team.teamName}</td>
+                          <td className="p-4 font-medium">
+                            {team.teamName}
+                            {team.group && (
+                              <span className="ml-2 text-xs text-slate-500">
+                                {team.category?.toLowerCase()} · {team.group}
+                              </span>
+                            )}
+                          </td>
                           <td className="p-4 text-right">{team.lastScore}</td>
                           <td className="p-4 text-right font-semibold">
                             {team.total ?? team.accumulated}
@@ -188,7 +199,14 @@ export default function ScoreboardPage() {
                   key={team.teamId}
                   className="border-b border-gray-700 transition-colors hover:bg-gray-800/30"
                 >
-                  <td className="p-4 font-medium">{team.teamName}</td>
+                  <td className="p-4 font-medium">
+                            {team.teamName}
+                            {team.group && (
+                              <span className="ml-2 text-xs text-slate-500">
+                                {team.category?.toLowerCase()} · {team.group}
+                              </span>
+                            )}
+                          </td>
                   <td className="p-4 text-right">{team.lastScore}</td>
                   <td className="p-4 text-right font-semibold">
                     {team.total ?? team.accumulated}

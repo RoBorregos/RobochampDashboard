@@ -29,7 +29,7 @@ export const trackOf =(name: string) =>
 async function loadRows(): Promise<Row[]> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.rows;
 
-  const [challenges, a, b, c] = await Promise.all([
+  const [challenges, a, b, c, mars] = await Promise.all([
     db.challenge.findMany({
       where: { round: { isVisible: true, team: { isActive: true } } },
       select: {
@@ -45,6 +45,7 @@ async function loadRows(): Promise<Row[]> {
     db.challengeA.findMany({ select: score, orderBy: { createdAt: "desc" } }),
     db.challengeB.findMany({ select: score, orderBy: { createdAt: "desc" } }),
     db.challengeC.findMany({ select: score, orderBy: { createdAt: "desc" } }),
+    db.marsRun.findMany({ select: score, orderBy: { createdAt: "desc" } }),
   ]);
 
   // judge forms store roundId as the round number string
@@ -55,12 +56,22 @@ async function loadRows(): Promise<Row[]> {
       if (!points.has(k)) points.set(k, s.points);
     }
 
+  // Mars runs have no track: a team runs once per round, so team+round identifies it.
+  const marsPoints = new Map<string, number>();
+  for (const s of mars) {
+    const k = `${s.teamId}|${s.roundId}`;
+    if (!marsPoints.has(k)) marsPoints.set(k, s.points);
+  }
+
   const rows: Row[] = [];
   for (const ch of challenges) {
     const team = ch.round.team;
     if (!team) continue;
     const track = trackOf(ch.name);
-    const pts = points.get(`${track}|${team.id}|${ch.round.number}`) ?? null;
+    const pts =
+      points.get(`${track}|${team.id}|${ch.round.number}`) ??
+      marsPoints.get(`${team.id}|${ch.round.number}`) ??
+      null;
     rows.push({
       id: ch.id,
       time: ch.time,

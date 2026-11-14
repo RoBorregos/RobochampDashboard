@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import Select from "react-select";
@@ -27,6 +27,8 @@ import {
 } from "rbrgs/lib/marsScoring";
 import { api } from "~/trpc/react";
 import { cn } from "~/lib/utils";
+import { RunTimer, freshTimer, timerMath, type TimerState } from "./RunTimer";
+import type { LineupRun } from "~/lib/judgeRun";
 import { CounterButton, ToggleButton } from "./ScoreButtons";
 
 type FormData = z.infer<typeof marsSchema>;
@@ -43,7 +45,24 @@ const CATEGORIES = [
   { value: "ADVANCED", label: "Avanzados" },
 ] as const;
 
-export const FormChallengeMars = ({ teamId = "" }: { teamId?: string }) => {
+type AutoProps = {
+  run?: LineupRun;
+  now?: number;
+  /** When the next run on the track starts: the evaluation auto-finalizes then. */
+  endsAt?: number;
+  /** Server clock minus device clock. */
+  offset?: number;
+  next?: LineupRun | null;
+};
+
+export const FormChallengeMars = ({
+  teamId = "",
+  run,
+  now = 0,
+  endsAt,
+  offset = 0,
+  next,
+}: { teamId?: string } & AutoProps) => {
   const form = useForm<FormData>({
     resolver: zodResolver(marsSchema),
     defaultValues: {
@@ -53,7 +72,7 @@ export const FormChallengeMars = ({ teamId = "" }: { teamId?: string }) => {
       stairs: 0,
       seeds: 0,
       seesawCrossed: false,
-      genericFormSchema: { obtainedBonus: false, roundTimeSeconds: 0 },
+      genericFormSchema: { obtainedBonus: false, roundTimeSeconds: 0, lackOfProgress: 0 },
     },
   });
 
@@ -76,6 +95,26 @@ export const FormChallengeMars = ({ teamId = "" }: { teamId?: string }) => {
   useEffect(() => {
     if (teamId) form.setValue("genericFormSchema.teamId", teamId);
   }, [teamId, form]);
+  const [timer, setTimer] = useState<TimerState>(freshTimer);
+  const { anchor, elapsedAt } = timerMath(timer, run?.start.getTime() ?? null, MARS_ROUND_SECONDS * 1000);
+  const [finalized, setFinalized] = useState(false);
+  // Only finalize a run this page saw live; opening it late must not save a blank score.
+  const armed = useRef(endsAt === undefined || now < endsAt);
+  const over = endsAt !== undefined && now >= endsAt;
+  useEffect(() => {
+    if (!run) return;
+    form.setValue("genericFormSchema.teamId", run.teamId);
+    form.setValue("genericFormSchema.roundId", String(run.round));
+    if (run.category) form.setValue("category", run.category);
+  }, [run, form]);
+  // The run clock fills the round time until the judge stops it.
+  useEffect(() => {
+    if (anchor === null || finalized) return;
+    const secs = Math.floor(elapsedAt(now) / 1000);
+    // setValue re-renders via watch(), and elapsedAt is new every render: only write changes.
+    if (Number(form.getValues("genericFormSchema.roundTimeSeconds")) !== secs)
+      form.setValue("genericFormSchema.roundTimeSeconds", secs);
+  }, [anchor, elapsedAt, now, finalized, form]);
   const options = teamIds?.map((t) => ({ value: t.id, label: t.name })) ?? [];
   const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
 
@@ -106,6 +145,13 @@ export const FormChallengeMars = ({ teamId = "" }: { teamId?: string }) => {
     },
   });
 
+  useEffect(() => {
+    if (!over || finalized) return;
+    setFinalized(true);
+    if (armed.current)
+      void form.handleSubmit((data) => createEvaluation.mutate(data))();
+  }, [over, finalized, form, createEvaluation]);
+
   // Switching category lowers the caps, so clamp counts that would exceed them.
   function setCategory(category: FormData["category"]) {
     form.setValue("category", category);
@@ -120,6 +166,50 @@ export const FormChallengeMars = ({ teamId = "" }: { teamId?: string }) => {
         onSubmit={form.handleSubmit((data) => createEvaluation.mutate(data))}
         className="w-full space-y-4 text-white"
       >
+        <div className="sticky top-16 z-10 -mx-3 -mt-3 border-b border-neutral-800 bg-black/95 p-3 backdrop-blur">
+          <div className="flex items-baseline justify-between text-xs uppercase tracking-widest text-neutral-400">
+            <span>Pista {run?.track ?? "—"}</span>
+            <span>Round {run?.round ?? "—"}</span>
+          </div>
+          <div className="mt-2 flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-neutral-400">
+                {!run
+                  ? "Picked by hand"
+                  : finalized
+                    ? "Finalized"
+                    : now < run.start.getTime()
+                      ? `Up next · starts ${run.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                      : "On track · finalizes when the next team starts"}
+              </p>
+              <p className="truncate text-2xl font-bold">
+                {run?.teamName ?? options.find((o) => o.value === values.genericFormSchema.teamId)?.label ?? "—"}
+              </p>
+            </div>
+            <p className="shrink-0 font-digital text-4xl text-roboblue">{preview}</p>
+          </div>
+          <RunTimer
+            timer={timer}
+            setTimer={setTimer}
+            scheduledStart={run?.start.getTime() ?? null}
+            nextMatchAt={endsAt ?? null}
+            maxMs={MARS_ROUND_SECONDS * 1000}
+            offset={offset}
+          />
+          {run && (
+            <p className="mt-2 text-xs text-neutral-400">
+              Next:{" "}
+              {next ? (
+                <>
+                  <span className="text-white">{next.teamName}</span> ·{" "}
+                  {next.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} (round {next.round})
+                </>
+              ) : (
+                "no more runs on this track"
+              )}
+            </p>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2">
           {CATEGORIES.map((c) => (
             <button
@@ -234,7 +324,7 @@ export const FormChallengeMars = ({ teamId = "" }: { teamId?: string }) => {
           )}
         />
         <div className="flex items-center gap-3">
-          <Button type="submit">Submit</Button>
+          <Button type="submit" disabled={!!run && finalized}>Submit</Button>
           {lastCreatedId && (
             <Button
               variant="destructive"
