@@ -64,6 +64,37 @@ function PistaCell({
   );
 }
 
+const KNOCKOUT = [["s0", "Semifinal 1"], ["s1", "Semifinal 2"], ["f", "Final"]] as const;
+
+// Semifinal/final times for one category; saved on blur, shown on the brackets page.
+function KnockoutTimes({ category }: { category: "BEGINNERS" | "ADVANCED" }) {
+  const { data, refetch } = api.bracket.getBracket.useQuery({ category });
+  const save = api.bracket.setKnockoutTimes.useMutation({
+    onSuccess: () => void refetch(),
+    onError: (e) => toast.error(e.message),
+  });
+  const times = (data as { times?: Record<string, string> } | null)?.times ?? {};
+  return (
+    <div className="grid gap-2 text-sm sm:grid-cols-3">
+      {KNOCKOUT.map(([key, label]) => (
+        <label key={key} className="flex items-center justify-between gap-2">
+          {category} - {label}
+          <input
+            type="time"
+            key={times[key]}
+            defaultValue={times[key] ?? ""}
+            onBlur={(e) => {
+              if (e.target.value && e.target.value !== times[key])
+                save.mutate({ category, times: { ...times, [key]: e.target.value } });
+            }}
+            className="rounded bg-gray-600 p-1"
+          />
+        </label>
+      ))}
+    </div>
+  );
+}
+
 export default function ScheduleControl({
   refetchScheduleTeams,
 }: ScheduleControlProps) {
@@ -123,6 +154,12 @@ export default function ScheduleControl({
           <li>• Odd bracket groups run track A, even groups track B; groups 1+2 start first, then 3+4, each group&apos;s first team before its second.</li>
           <li>• Saving a bracket regenerates its schedule automatically; manual time edits below are lost then.</li>
         </ul>
+      </div>
+
+      <div className="space-y-3 rounded-lg bg-gray-800 p-6">
+        <h3 className="text-xl font-semibold">Semifinals &amp; Final times (GMT-6)</h3>
+        <KnockoutTimes category="BEGINNERS" />
+        <KnockoutTimes category="ADVANCED" />
       </div>
 
       {tables?.map((t) => (
