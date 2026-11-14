@@ -131,7 +131,7 @@ export const scoreboardRouter = createTRPCRouter({
         const isRoundC = (roundId as Round) === Round.C;
         // Semi (round 4) and final (round 5) are independent scores, never added to the total.
         scores.total = Object.entries(scores.rounds).reduce(
-          (sum, [r, v]) => (Number(r) <= Round.C ? sum + (v.score ?? 0) : sum),
+          (sum, [r, v]) => ((Number(r) as Round) <= Round.C ? sum + (v.score ?? 0) : sum),
           0,
         );
         scores.semi = scores.rounds[4]?.score;
