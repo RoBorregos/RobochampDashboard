@@ -27,7 +27,8 @@ export type LiveOp = z.infer<typeof liveOpSchema>;
 export type LiveField = LiveOp["field"];
 
 export type LiveState = {
-  values: Partial<Record<LiveField, unknown>>;
+  /** `cancelled` is set only by judge.cancelRun, never by a liveSet op. */
+  values: Partial<Record<LiveField | "cancelled", unknown>>;
   locks: Partial<Record<LiveField, { until: number; by: string }>>;
 };
 export const emptyLive: LiveState = { values: {}, locks: {} };
@@ -42,6 +43,10 @@ export function applyLive(
   by: string,
   now: number,
 ): LiveState | null {
+  // A cancelled run is closed, and an ended round's run time is frozen.
+  if (s.values.cancelled) return null;
+  if (op.field === "timer" && (s.values.timer as { stoppedAt?: number | null } | undefined)?.stoppedAt != null)
+    return null;
   const lock = s.locks[op.field];
   if (lock && lock.by !== by && lock.until > now) return null;
   if (JSON.stringify(s.values[op.field]) !== JSON.stringify(op.from)) return null;

@@ -11,7 +11,7 @@ import {
   challengeCSchema,
   marsSchema,
 } from "rbrgs/lib/schemas";
-import { computeMarsPoints } from "rbrgs/lib/marsScoring";
+import { MARS_ROUND_SECONDS, computeMarsPoints } from "rbrgs/lib/marsScoring";
 import { env } from "rbrgs/env";
 import { LIVE_CHANNEL } from "rbrgs/lib/liveRun";
 
@@ -175,6 +175,12 @@ export const judgeRouter = createTRPCRouter({
       // moment, so the later submit updates the first instead of doubling it.
       return await ctx.db.$transaction(async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`mars:${g.teamId}:${g.roundId}`}))`;
+        // A cancelled run stays at 0 even when its judges' forms auto-finalize later.
+        const live = await tx.liveRun.findUnique({ where: { key: `${g.teamId}:${g.roundId}` } });
+        if ((live?.data as unknown as LiveState | undefined)?.values.cancelled) {
+          data.points = 0;
+          data.roundTimeSeconds = MARS_ROUND_SECONDS;
+        }
         const existing = await tx.marsRun.findFirst({
           where: { teamId: g.teamId, roundId: g.roundId },
           select: { id: true },
@@ -183,6 +189,33 @@ export const judgeRouter = createTRPCRouter({
           ? await tx.marsRun.update({ where: { id: existing.id }, data })
           : await tx.marsRun.create({ data });
       });
+    }),
+
+  // Cancels a team's round: every score in it becomes 0, now and on any later submit.
+  cancelRun: judgeProcedure
+    .input(z.object({ teamId: z.string(), round: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const key = `${input.teamId}:${input.round}`;
+      const where = { teamId: input.teamId, roundId: String(input.round) };
+      await ctx.db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`mars:${key}`}))`;
+        const row = await tx.liveRun.findUnique({ where: { key } });
+        const live = (row?.data as unknown as LiveState) ?? emptyLive;
+        // Cancelling ends the run and bills it the max run time (for the rubric), whatever it really was.
+        const now = Date.now();
+        const timer = { startedAt: null, runStartedAt: now - MARS_ROUND_SECONDS * 1000, stoppedAt: now };
+        const values = { ...live.values, cancelled: true, timer };
+        const data = { ...live, values } as unknown as Prisma.InputJsonValue;
+        // Bumping the version makes a judge's concurrent liveSet retry on top of this.
+        await tx.liveRun.upsert({ where: { key }, create: { key, data }, update: { data, version: { increment: 1 } } });
+        await tx.marsRun.updateMany({ where, data: { points: 0, roundTimeSeconds: MARS_ROUND_SECONDS } });
+        await tx.challengeA.updateMany({ where, data: { points: 0 } });
+        await tx.challengeB.updateMany({ where, data: { points: 0 } });
+        await tx.challengeC.updateMany({ where, data: { points: 0 } });
+      });
+      liveCache.delete(key);
+      await pingLive(key);
+      return { ok: true };
     }),
 
   roundMarsDelete: judgeProcedure

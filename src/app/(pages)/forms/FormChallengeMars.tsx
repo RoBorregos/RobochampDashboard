@@ -160,6 +160,17 @@ export const FormChallengeMars = ({
   const setTimer = (update: (t: TimerState) => TimerState) =>
     key ? write("timer", update(timer)) : setLocalTimer(update);
   const { anchor, elapsedAt } = timerMath(timer, run?.start.getTime() ?? null, MARS_ROUND_SECONDS * 1000);
+  const cancelled = !!live?.values.cancelled;
+  const cancelRun = api.judge.cancelRun.useMutation({
+    onSuccess() {
+      toast("Corrida cancelada: la ronda vale 0 puntos.");
+      if (key) void utils.judge.live.invalidate({ key });
+    },
+    onError(error) {
+      toast.error("No se pudo cancelar la corrida, intenta de nuevo.");
+      console.error(error);
+    },
+  });
   const [finalized, setFinalized] = useState(false);
   // Only finalize a run this page saw live; opening it late must not save a blank score.
   const armed = useRef(endsAt === undefined || now < endsAt);
@@ -209,11 +220,12 @@ export const FormChallengeMars = ({
   });
 
   useEffect(() => {
-    if (!over || finalized) return;
+    // Cancelling ends the round right away (the server saves it as 0 points).
+    if (!(over || cancelled) || finalized) return;
     setFinalized(true);
     if (armed.current)
       void form.handleSubmit((data) => createEvaluation.mutate(data))();
-  }, [over, finalized, form, createEvaluation]);
+  }, [over, cancelled, finalized, form, createEvaluation]);
 
   // Switching category lowers the caps, so clamp counts that would exceed them
   // (the server does the same for the shared state).
@@ -240,7 +252,9 @@ export const FormChallengeMars = ({
               <p className="text-xs text-neutral-400">
                 {!run
                   ? "Picked by hand"
-                  : finalized
+                  : cancelled
+                    ? "Cancelled · scores 0"
+                    : finalized
                     ? "Finalized"
                     : now < run.start.getTime()
                       ? `Up next · starts ${run.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
@@ -251,7 +265,7 @@ export const FormChallengeMars = ({
               </p>
             </div>
             <p className="shrink-0 font-digital text-4xl text-roboblue">
-              {preview}
+              {cancelled ? 0 : preview}
               <span className="text-xl text-neutral-500"> / {maxPoints}</span>
             </p>
           </div>
@@ -263,6 +277,8 @@ export const FormChallengeMars = ({
             maxMs={MARS_ROUND_SECONDS * 1000}
             offset={offset}
             locked={locked("timer")}
+            onCancel={run && (() => cancelRun.mutate({ teamId: run.teamId, round: run.round }))}
+            cancelled={cancelled}
           />
           {run && (
             <p className="mt-2 text-xs text-neutral-400">
@@ -278,6 +294,7 @@ export const FormChallengeMars = ({
             </p>
           )}
         </div>
+        <fieldset disabled={cancelled} className="space-y-4 disabled:opacity-40">
         <div className="grid grid-cols-2 gap-2">
           {CATEGORIES.map((c) => (
             <button
@@ -335,6 +352,7 @@ export const FormChallengeMars = ({
           </span>{""}
           s / {MARS_ROUND_SECONDS}s · time left is +1 pt/sec only with a perfect score.
         </p>
+        </fieldset>
         <FormField
           control={form.control}
           name="genericFormSchema.teamId"

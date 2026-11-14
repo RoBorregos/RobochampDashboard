@@ -33,7 +33,7 @@ function useFrameClock(offset: number) {
 export type TimerState = {
   /** Segment (calibration + run) started by hand instead of by the schedule. */
   startedAt: number | null;
-  /** Run clock started by hand ("Skip calibration" / "Restart run"). */
+  /** Run clock started by hand ("Skip calibration"). */
   runStartedAt: number | null;
   stoppedAt: number | null;
 };
@@ -65,6 +65,8 @@ export function RunTimer({
   offset,
   locked,
   action,
+  onCancel,
+  cancelled,
 }: {
   timer: TimerState;
   setTimer: (update: (t: TimerState) => TimerState) => void;
@@ -76,6 +78,9 @@ export function RunTimer({
   locked?: boolean;
   /** Small read-only clock with just this button (a judge of the other colour watching). */
   action?: { label: string; onClick: () => void };
+  /** Cancels the run (its round scores 0); only offered for scheduled runs. */
+  onCancel?: () => void;
+  cancelled?: boolean;
 }) {
   const at = useFrameClock(offset);
   const clock = () => Date.now() + offset;
@@ -83,7 +88,9 @@ export function RunTimer({
   const stopped = timer.stoppedAt !== null;
 
   let phase: "idle" | "waiting" | "calibration" | "run" | "cooldown";
-  if (anchor === null || segmentStart === null) phase = "idle";
+  // A cancelled run goes straight to the cooldown before the next match, whatever phase it was in.
+  if (cancelled && nextMatchAt !== null && at < nextMatchAt) phase = "cooldown";
+  else if (anchor === null || segmentStart === null) phase = "idle";
   else if (at < segmentStart) phase = "waiting";
   else if (!stopped && at < anchor) phase = "calibration";
   else if ((stopped || elapsedAt(at) >= maxMs) && nextMatchAt !== null && at < nextMatchAt)
@@ -105,14 +112,15 @@ export function RunTimer({
     limit = CALIBRATION_MS;
     tone = "text-green-400";
   } else if (phase === "cooldown") {
-    label = stopped ? "Cooldown · ended early" : "Cooldown";
+    label = cancelled ? "Cooldown · run cancelled" : stopped ? "Cooldown · round ended" : "Cooldown";
     ms = nextMatchAt! - at;
     tone = "text-sky-400";
     labelTone = "text-sky-400";
   } else if (phase === "run") {
     ms = elapsedAt(at);
     limit = maxMs;
-    if (stopped) label = "Stopped";
+    if (cancelled) label = "Run cancelled";
+    else if (stopped) label = "Round ended";
     else if (ms >= maxMs) {
       label = "Time's up";
       labelTone = "text-red-400";
@@ -134,21 +142,15 @@ export function RunTimer({
     )
       startRunNow();
   };
-  const restartRun = () => {
-    if (
-      window.confirm(
-        `Restart the run timer? ${formatClock(elapsedAt(at))} of run time will be lost and it starts again from 0:00.`,
-      )
-    )
-      startRunNow();
+  const cancelRun = () => {
+    if (window.prompt('Cancel this run? The round will score 0 points. Type "CANCEL" to confirm.') === "CANCEL")
+      onCancel?.();
   };
-  // Picks up where it stopped: the pause is not billed to the team as run time.
-  const resume = () =>
-    setTimer((t) =>
-      t.stoppedAt === null || anchor === null
-        ? { ...t, stoppedAt: null }
-        : { ...t, stoppedAt: null, runStartedAt: anchor + (clock() - t.stoppedAt) },
-    );
+  // Freezes the run time for scoring: once ended, the timer can't be resumed or reset.
+  const endRound = () => {
+    if (window.confirm(`End the round at ${formatClock(elapsedAt(at))}? The run time is final.`))
+      setTimer((t) => ({ ...t, stoppedAt: clock() }));
+  };
 
   const button =
     "h-12 flex-1 rounded-lg border-2 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-40 disabled:grayscale";
@@ -178,7 +180,7 @@ export function RunTimer({
           )
         )}
       </div>
-      <fieldset disabled={locked} className="mt-2 flex gap-2">
+      <fieldset disabled={locked || cancelled} className="mt-2 flex gap-2">
         {action ? (
           <button
             type="button"
@@ -205,29 +207,26 @@ export function RunTimer({
           >
             Skip calibration
           </button>
-        ) : stopped ? (
-          <button type="button" onClick={resume} className={cn(button, "border-neutral-600")}>
-            Resume
-          </button>
-        ) : (
+        ) : stopped ? null : (
           <button
             type="button"
-            onClick={() => setTimer((t) => ({ ...t, stoppedAt: clock() }))}
+            onClick={endRound}
             className={cn(button, "border-red-500 bg-red-500/20")}
           >
-            Stop
+            End Round
           </button>
         )}
-        {!action && (phase === "run" || phase === "cooldown") && (
+        {!action && onCancel && (
           <button
             type="button"
-            onClick={restartRun}
-            className={cn(button, "border-neutral-700 text-neutral-300")}
+            onClick={cancelRun}
+            disabled={cancelled}
+            className={cn(button, "border-red-700 text-red-400")}
           >
-            Restart run
+            {cancelled ? "Run cancelled" : "Cancel run"}
           </button>
         )}
-        {!action && (timer.startedAt !== null || timer.runStartedAt !== null) && (
+        {!action && !stopped && (timer.startedAt !== null || timer.runStartedAt !== null) && (
           <button
             type="button"
             onClick={() => setTimer(() => freshTimer)}
