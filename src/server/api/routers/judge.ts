@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { createTRPCRouter, judgeProcedure as baseJudgeProcedure } from "rbrgs/server/api/trpc";
+import { JudgeColor } from "@prisma/client";
 import { invalidateSchedule } from "./schedule";
 import {
   challengeASchema,
@@ -22,6 +23,33 @@ const computePointsLOP = (_lackOfProgress: number) => {
 };
 
 export const judgeRouter = createTRPCRouter({
+  me: baseJudgeProcedure.query(({ ctx }) =>
+    ctx.db.user.findUniqueOrThrow({
+      where: { id: ctx.session.user.id },
+      select: { judgeColor: true, judgeTrack: true },
+    }),
+  ),
+
+  setColor: baseJudgeProcedure
+    .input(z.object({ color: z.nativeEnum(JudgeColor) }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.user.update({
+        where: { id: ctx.session.user.id },
+        data: { judgeColor: input.color },
+        select: { id: true },
+      }),
+    ),
+
+  setTrack: baseJudgeProcedure
+    .input(z.object({ track: z.enum(["A", "B"]) }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.user.update({
+        where: { id: ctx.session.user.id },
+        data: { judgeTrack: input.track },
+        select: { id: true },
+      }),
+    ),
+
   roundMars: judgeProcedure
     .input(marsSchema)
     .mutation(async ({ ctx, input }) => {

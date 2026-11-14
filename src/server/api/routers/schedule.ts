@@ -23,7 +23,7 @@ export const invalidateSchedule = () => {
 
 const score = { teamId: true, roundId: true, points: true } as const;
 
-const trackOf = (name: string) =>
+export const trackOf =(name: string) =>
   /(?:pista|track)\s*([a-c])/i.exec(name)?.[1]?.toUpperCase() ?? "?";
 
 async function loadRows(): Promise<Row[]> {
