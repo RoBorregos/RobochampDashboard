@@ -216,12 +216,12 @@ export const FormChallengeMars = ({
   });
 
   useEffect(() => {
-    // Cancelling ends the round right away (the server saves it as 0 points).
-    if (!(over || cancelled) || finalized) return;
+    // Cancelling ends the round right away (the server saves it as 0 points); so does "End Round".
+    if (!(over || cancelled || timer.stoppedAt !== null) || finalized) return;
     setFinalized(true);
     if (armed.current)
       void form.handleSubmit((data) => createEvaluation.mutate(data))();
-  }, [over, cancelled, finalized, form, createEvaluation]);
+  }, [over, cancelled, timer.stoppedAt, finalized, form, createEvaluation]);
 
   // The rubric follows the selected team's category; a lower cap clamps counts that exceed it.
   const teamCategory =
