@@ -12,12 +12,12 @@ const Timeline: React.FC = () => {
         <TimelineImg numberImage={4} col={2} row={2} />
       </div>
 
-      <div className="relative max-w-[48rem] p-4 text-white">
-        <h2 className="mt-[5rem] text-center text-[4rem] font-bold text-roboblue">
+      <div className="relative w-full max-w-[48rem] p-4 text-white">
+        <h2 className="mt-[5rem] break-words text-center text-[2.5rem] font-bold sm:text-[4rem] text-roboblue">
           Event Schedule
         </h2>
         <div className="mt-[3rem] overflow-x-auto rounded-xl bg-gradient-to-tr from-neutral-950 to-neutral-800">
-          <table className="w-full min-w-[32rem] text-left text-sm">
+          <table className="w-full table-auto text-left text-xs sm:text-sm">
             <thead className="text-roboblue">
               <tr>
                 <th className="p-3">Time</th>
