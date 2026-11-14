@@ -52,6 +52,22 @@ export default function ScoreboardPage() {
       console.error(error);
     },
   });
+  const setScore = api.judge.setRoundScore.useMutation({
+    onSuccess() {
+      toast("Score updated.");
+      refetch().catch(console.error);
+    },
+    onError(error) {
+      toast.error(`Could not update the score: ${error.message}`);
+    },
+  });
+  const askScore = (team: ProcessedTeam, round: number, current: number) => {
+    const v = window.prompt(`New score for ${team.teamName}, round ${round}:`, String(current));
+    if (v === null || v.trim() === "") return;
+    const points = Number(v);
+    if (!Number.isInteger(points) || points < 0) return void toast.error("Enter a whole number, 0 or more.");
+    setScore.mutate({ teamId: team.teamId, round, points });
+  };
   const askCancel = (team: ProcessedTeam, round: number) => {
     if (
       window.prompt(
@@ -243,6 +259,24 @@ export default function ScoreboardPage() {
                                     R{round}: {(r as { score?: number }).score ?? 0} · Cancel run
                                   </button>
                                 ))}
+                              </div>
+                            )}
+                            {role === Role.ADMIN && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {[1, 2, 3].map((round) => {
+                                  const cur = ((team.rounds as Record<string, unknown>)[round] as { score?: number } | undefined)?.score ?? 0;
+                                  return (
+                                    <button
+                                      key={round}
+                                      type="button"
+                                      disabled={setScore.isPending}
+                                      onClick={() => askScore(team, round, cur)}
+                                      className="rounded border border-blue-700 px-2 py-0.5 text-xs text-blue-400 hover:bg-blue-950 disabled:opacity-40"
+                                    >
+                                      Edit R{round}: {cur}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             )}
                           </td>
