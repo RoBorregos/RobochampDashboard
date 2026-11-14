@@ -180,7 +180,7 @@ export function RunTimer({
           )
         )}
       </div>
-      <fieldset disabled={locked || cancelled} className="mt-2 flex gap-2">
+      <fieldset disabled={!!locked || !!cancelled} className="mt-2 flex gap-2">
         {action ? (
           <button
             type="button"

@@ -166,7 +166,7 @@ export const scheduleManagementRouter = createTRPCRouter({
       const team = c.round.team;
       if (!team?.category) continue;
       const key = `${team.category}${c.round.number}`;
-      const t = tables.get(key) ?? { category: team.category, round: c.round.number, rows: new Map() };
+      const t = tables.get(key) ?? { category: team.category, round: c.round.number, rows: new Map<string, Record<"pistaA" | "pistaB", Cell | null>>() };
       tables.set(key, t);
       const time = hhmm(c.time);
       const row = t.rows.get(time) ?? { pistaA: null, pistaB: null };
