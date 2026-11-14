@@ -3,9 +3,10 @@ type TeamScores = {
   teamName: string;
   rounds: Record<number, { score: number }>;
   total: number;
-  lastScore?: number;
-  semi?: number;
-  final?: number;
+  // null = hidden knockout score (frozen, non-admin): the client draws random characters.
+  lastScore?: number | null;
+  semi?: number | null;
+  final?: number | null;
   category: string | null;
   /** "Group 1".. from the saved bracket, so it follows bracket edits. */
   group: string | null;
@@ -118,7 +119,8 @@ export const scoreboardRouter = createTRPCRouter({
         const roundId = Number(ch.roundId);
         if (isNaN(roundId)) continue;
         const isRoundC = (roundId as Round) === Round.C;
-        const points = isRoundC && isFrozen ? 0 : ch.points;
+        // Round C and the knockouts (semi 4, final 5) stay hidden from non-admins while frozen.
+        const points = (isRoundC || (roundId as Round) > Round.C) && isFrozen ? 0 : ch.points;
         const existing = scores.rounds[roundId]?.score ?? 0;
         scores.rounds[roundId] = { score: existing + (points ?? 0) };
       }
@@ -134,10 +136,11 @@ export const scoreboardRouter = createTRPCRouter({
           (sum, [r, v]) => ((Number(r) as Round) <= Round.C ? sum + (v.score ?? 0) : sum),
           0,
         );
-        scores.semi = scores.rounds[4]?.score;
-        scores.final = scores.rounds[5]?.score;
-        const last = isRoundC && isFrozen ? 0 : mostRecent.points;
-        scores.lastScore = last;
+        const hide = (v: number | undefined) => (isFrozen && v !== undefined ? null : v);
+        scores.semi = hide(scores.rounds[4]?.score);
+        scores.final = hide(scores.rounds[5]?.score);
+        scores.lastScore =
+          (roundId as Round) > Round.C && isFrozen ? null : isRoundC && isFrozen ? 0 : mostRecent.points;
       } else {
         scores.lastScore = 0;
         scores.total = 0;
