@@ -240,7 +240,7 @@ export const judgeRouter = createTRPCRouter({
 
   // Admin override: sets a team's score for a round directly. A later judge submit for the same round recomputes and replaces it.
   setRoundScore: adminProcedure
-    .input(z.object({ teamId: z.string(), round: z.number().int().min(1).max(3), points: z.number().int().min(0).max(1000) }))
+    .input(z.object({ teamId: z.string(), round: z.number().int().min(1).max(5), points: z.number().int().min(0).max(1000) }))
     .mutation(async ({ ctx, input }) => {
       const where = { teamId: input.teamId, roundId: String(input.round) };
       return await ctx.db.$transaction(async (tx) => {
