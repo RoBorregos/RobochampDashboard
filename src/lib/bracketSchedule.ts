@@ -70,6 +70,17 @@ export const hhmm = (d: Date) =>
   d.toLocaleTimeString("en-GB", { timeZone: EVENT_TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 export const windowStart = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
+/** Balanced groups of at most 4, in the given order (default grouping when no bracket is saved). */
+export function groupsOf(names: string[]) {
+  const count = Math.ceil(names.length / 4);
+  const out: string[][] = [];
+  for (let g = 0, from = 0; g < count; g++) {
+    const size = Math.floor(names.length / count) + (g < names.length % count ? 1 : 0);
+    out.push(names.slice(from, (from += size)));
+  }
+  return out;
+}
+
 export type Run = { team: string; round: number; track: "A" | "B"; start: Date };
 
 /**
