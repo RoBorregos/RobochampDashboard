@@ -1,4 +1,5 @@
 import { ScheduleStatus, type BracketCategory, type PrismaClient } from "@prisma/client";
+import events from "../app/_components/events.json";
 
 const MIN = 60_000;
 /** 2 min calibration + 8 min execution. */
@@ -46,11 +47,28 @@ export const mmss = (ms: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 
-// Qualification windows from src/app/_components/events.json (minutes from midnight).
-export const WINDOWS: Record<BracketCategory, [number, number][]> = {
-  ADVANCED: [[570, 660], [670, 760]], // 9:30-11:00, 11:10-12:40
-  BEGINNERS: [[760, 840], [900, 980]], // 12:40-14:00, 15:00-16:20
+// The event is one fixed day in GMT-6 (Mexico has no DST), whatever the server's timezone.
+export const EVENT_TZ = "America/Mexico_City";
+export const EVENT_MIDNIGHT = Date.parse("2026-11-14T00:00:00-06:00");
+
+// Qualification windows read from the agenda in events.json (minutes from midnight), index = round - 1.
+export const WINDOWS: Record<BracketCategory, [number, number][]> = { ADVANCED: [], BEGINNERS: [] };
+const toMin = (t: string) => {
+  const [h, m] = t.trim().split(":").map(Number);
+  return h! * 60 + m!;
 };
+for (const e of events.agenda) {
+  const round = /^Round (\d)/.exec(e.activity)?.[1];
+  if (!round || (e.category !== "Advanced" && e.category !== "Beginners")) continue;
+  const [from, to] = e.time.split("–").map(toMin);
+  WINDOWS[e.category.toUpperCase() as BracketCategory][Number(round) - 1] = [from!, to!];
+}
+
+/** "HH:MM" on the event day, in event time. */
+export const eventTime = (hhmm: string) => new Date(EVENT_MIDNIGHT + toMin(hhmm) * MIN);
+export const hhmm = (d: Date) =>
+  d.toLocaleTimeString("en-GB", { timeZone: EVENT_TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+export const windowStart = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 export type Run = { team: string; round: number; track: "A" | "B"; start: Date };
 
@@ -63,8 +81,8 @@ export type Run = { team: string; round: number; track: "A" | "B"; start: Date }
 export function buildRuns(
   groups: string[][],
   category: BracketCategory,
-  day = new Date(),
   shiftMs = 0,
+  starts: string[] = [], // optional per-round start "HH:MM" overriding the agenda; the window length is kept
 ) {
   const queue = (parity: number) => {
     const gs = groups.filter((_, i) => i % 2 === parity);
@@ -74,11 +92,12 @@ export function buildRuns(
     return out;
   };
   const queues = { A: queue(0), B: queue(1) };
-  const midnight = new Date(day).setHours(0, 0, 0, 0);
   const runs: Run[] = [];
   const warnings: string[] = [];
 
-  WINDOWS[category].forEach(([from, to], r) => {
+  WINDOWS[category].forEach(([agendaFrom, to], r) => {
+    const from = starts[r] ? toMin(starts[r]) : agendaFrom;
+    to += from - agendaFrom;
     const slots = Math.max(queues.A.length, queues.B.length);
     if (slots * SLOT_MS > (to - from) * MIN)
       warnings.push(
@@ -90,7 +109,7 @@ export function buildRuns(
           team,
           round: r + 1,
           track,
-          start: new Date(midnight + from * MIN + i * SLOT_MS + shiftMs),
+          start: new Date(EVENT_MIDNIGHT + from * MIN + i * SLOT_MS + shiftMs),
         }),
       );
   });
@@ -103,8 +122,9 @@ export async function syncSchedule(
   category: BracketCategory,
   groups: string[][],
   shiftMs = 0,
+  starts: string[] = [],
 ) {
-  const { runs, warnings } = buildRuns(groups, category, new Date(), shiftMs);
+  const { runs, warnings } = buildRuns(groups, category, shiftMs, starts);
   const teams = await db.team.findMany({
     where: { name: { in: groups.flat() } },
     select: { id: true, name: true },

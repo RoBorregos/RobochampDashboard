@@ -12,9 +12,9 @@ import { extractRouterConfig } from "uploadthing/server";
 import { ourFileRouter } from "rbrgs/server/uploadthing";
 
 export const metadata: Metadata = {
-  title: "Robochamp 2025",
+  title: "Robochamp 2026",
   description:
-    "Robochamp 2025 by RoBorregos, ITESM's biggest robotics competition",
+    "Robochamp 2026 by RoBorregos, ITESM's largest robotics competition",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 

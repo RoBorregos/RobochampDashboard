@@ -4,26 +4,10 @@ import fs from "fs";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { invalidateSchedule } from "../schedule";
-import { syncSchedule } from "rbrgs/lib/bracketSchedule";
+import { eventTime, hhmm, syncSchedule } from "rbrgs/lib/bracketSchedule";
 
-// Helper function to compute date from time string
-const ComputeDate = ({ date }: { date: string | undefined }) => {
-  if (date === undefined) {
-    const inv = new Date();
-    inv.setHours(0);
-    inv.setMinutes(0);
-    return inv;
-  }
-
-  const timeParts = date.split(":");
-  const hour = parseInt(timeParts[0] ?? "0");
-  const minute = timeParts[1];
-
-  const d = new Date();
-  d.setHours(hour);
-  d.setMinutes(parseInt(minute ?? "0"));
-  return d;
-};
+// "HH:MM" on the event day (14 Nov 2026, GMT-6).
+const ComputeDate = ({ date }: { date: string | undefined }) => eventTime(date ?? "00:00");
 
 type Cell = {
   id: string;
@@ -32,9 +16,6 @@ type Cell = {
   initialTime: string;
   status: string;
 };
-
-const hhmm = (d: Date) =>
-  d.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
 
 export const scheduleManagementRouter = createTRPCRouter({
   // Existing uploadTeamData procedure
@@ -122,7 +103,10 @@ export const scheduleManagementRouter = createTRPCRouter({
   }),
 
   // Rebuilds both categories' schedules from their saved brackets.
-  generateFromBrackets: adminProcedure.mutation(async ({ ctx }) => {
+  // `starts` optionally overrides each category's round start times ("HH:MM"); default is the agenda.
+  generateFromBrackets: adminProcedure
+    .input(z.object({ starts: z.record(z.string(), z.array(z.string().regex(/^\d{2}:\d{2}$/))) }).optional())
+    .mutation(async ({ ctx, input }) => {
     const brackets = await ctx.db.bracket.findMany();
     if (brackets.length === 0)
       throw new TRPCError({ code: "BAD_REQUEST", message: "Save a bracket first" });
@@ -130,10 +114,12 @@ export const scheduleManagementRouter = createTRPCRouter({
     const warnings: string[] = [];
     for (const b of brackets) {
       const groups = (b.data as { groups?: string[][] }).groups ?? [];
-      const r = await syncSchedule(ctx.db, b.category, groups);
+      const r = await syncSchedule(ctx.db, b.category, groups, 0, input?.starts?.[b.category]);
       runs += r.runs;
       warnings.push(...r.warnings);
     }
+    for (const c of ["ADVANCED", "BEGINNERS"] as const)
+      if (!brackets.some((b) => b.category === c)) warnings.push(`No ${c} bracket saved, nothing generated for it`);
     invalidateSchedule();
     return { runs, warnings };
   }),
