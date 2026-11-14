@@ -175,11 +175,15 @@ function BracketScroller({ children }: { children: React.ReactNode }) {
 function CategoryBracket({
   data,
   scores,
+  semiScores,
+  finalScores,
   onPick,
   onSwap,
 }: {
   data: Data;
   scores: Record<string, number>;
+  semiScores: Record<string, number>;
+  finalScores: Record<string, number>;
   onPick?: (id: string, team: string) => void;
   onSwap?: (a: string, b: string) => void;
 }) {
@@ -217,7 +221,7 @@ function CategoryBracket({
           <Row key={k}>
             <MatchCard
               accent
-              scores={scores}
+              scores={semiScores}
               label={`Semifinal ${k + 1}`}
               slots={m.teams.map((t) => slot(`s${k}`, t))}
             />
@@ -229,7 +233,7 @@ function CategoryBracket({
         <Row>
           <MatchCard
             accent
-            scores={scores}
+            scores={finalScores}
             slots={r.finalTeams.map((t) => slot("f", t))}
           />
         </Row>
@@ -239,7 +243,7 @@ function CategoryBracket({
         <Row>
           <MatchCard
             accent
-            scores={scores}
+            scores={finalScores}
             slots={[{ name: r.champion, won: !!r.champion }]}
           />
         </Row>
@@ -285,6 +289,9 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
   const scores = Object.fromEntries(
     scoreboard.map((t) => [t.teamName, t.total]),
   );
+  // Semi and final are independent scores, not added to the group total.
+  const semiScores = Object.fromEntries(scoreboard.map((t) => [t.teamName, t.semi ?? 0]));
+  const finalScores = Object.fromEntries(scoreboard.map((t) => [t.teamName, t.final ?? 0]));
 
   // Clicking the selected team again unselects it.
   const onPick = (id: string, team: string) => {
@@ -368,6 +375,8 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
         key={category}
         data={data}
         scores={scores}
+        semiScores={semiScores}
+        finalScores={finalScores}
         onPick={isAdmin ? onPick : undefined}
         onSwap={isAdmin ? onSwap : undefined}
       />

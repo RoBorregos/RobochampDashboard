@@ -4,6 +4,8 @@ type TeamScores = {
   rounds: Record<number, { score: number }>;
   total: number;
   lastScore?: number;
+  semi?: number;
+  final?: number;
   category: string | null;
   /** "Group 1".. from the saved bracket, so it follows bracket edits. */
   group: string | null;
@@ -127,10 +129,13 @@ export const scoreboardRouter = createTRPCRouter({
         );
         const roundId = Number(mostRecent.roundId);
         const isRoundC = (roundId as Round) === Round.C;
-        scores.total = Object.values(scores.rounds).reduce(
-          (sum, r) => sum + (r.score ?? 0),
+        // Semi (round 4) and final (round 5) are independent scores, never added to the total.
+        scores.total = Object.entries(scores.rounds).reduce(
+          (sum, [r, v]) => ((Number(r) as Round) <= Round.C ? sum + (v.score ?? 0) : sum),
           0,
         );
+        scores.semi = scores.rounds[4]?.score;
+        scores.final = scores.rounds[5]?.score;
         const last = isRoundC && isFrozen ? 0 : mostRecent.points;
         scores.lastScore = last;
       } else {
