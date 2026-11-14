@@ -114,6 +114,23 @@ export const roundControlRouter = createTRPCRouter({
       }
     }),
 
+  // Independent of round visibility: this is what the public scoreboard page checks.
+  setScoreboardVisible: adminProcedure
+    .input(z.object({ visible: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const config = await ctx.db.config.findFirst();
+      if (config)
+        await ctx.db.config.update({
+          where: { id: config.id },
+          data: { competitionStarted: input.visible },
+        });
+      else
+        await ctx.db.config.create({
+          data: { competitionStarted: input.visible },
+        });
+      return { visible: input.visible };
+    }),
+
   getRoundVisibilityStatus: adminProcedure.query(async ({ ctx }) => {
     try {
       const rounds = await ctx.db.round.findMany({

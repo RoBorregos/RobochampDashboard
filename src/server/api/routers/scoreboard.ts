@@ -91,7 +91,20 @@ export const scoreboardRouter = createTRPCRouter({
         group: groupOf.get(team.name) ?? null,
       };
 
-      const teamChallenges = challengesByTeam[team.id] ?? [];
+      // One result per scheduled round (as roundMars enforces): duplicate rows from
+      // several judges would otherwise be summed. Unscheduled runs (roundId "") all count.
+      const latestPerRound = new Map<string, AnyChallenge>();
+      const teamChallenges: AnyChallenge[] = [];
+      for (const ch of challengesByTeam[team.id] ?? []) {
+        if (ch.roundId === "") {
+          teamChallenges.push(ch);
+          continue;
+        }
+        const prev = latestPerRound.get(ch.roundId);
+        if (!prev || ch.createdAt > prev.createdAt)
+          latestPerRound.set(ch.roundId, ch);
+      }
+      teamChallenges.push(...latestPerRound.values());
 
       for (const ch of teamChallenges) {
         const roundId = Number(ch.roundId);

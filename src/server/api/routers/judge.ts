@@ -64,6 +64,20 @@ const computePointsLOP = (_lackOfProgress: number) => {
   return 0;
 };
 
+// A scheduled run has one result per team and round: `save` runs under a lock so a resubmit updates the row instead of adding a second.
+async function onePerRound<T>(
+  db: PrismaClient,
+  key: string,
+  roundId: string | undefined,
+  save: (tx: Prisma.TransactionClient) => Promise<T>,
+) {
+  if (!roundId) return await save(db);
+  return await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+    return await save(tx);
+  });
+}
+
 export const judgeRouter = createTRPCRouter({
   me: baseJudgeProcedure.query(({ ctx }) =>
     ctx.db.user.findUniqueOrThrow({
@@ -264,8 +278,8 @@ export const judgeRouter = createTRPCRouter({
 
       points += computePointsLOP(input.genericFormSchema.lackOfProgress);
 
-      return await ctx.db.challengeA.create({
-        data: {
+      const g = input.genericFormSchema;
+      const data = {
           finishedTrack: input.finishedTrack,
           obtainedBonus: input.genericFormSchema.obtainedBonus,
           roundTimeSeconds: input.genericFormSchema.roundTimeSeconds,
@@ -281,7 +295,12 @@ export const judgeRouter = createTRPCRouter({
           seesawCrossings: seesaw,
           cablesCut: cables,
           incorrectCut: incorrect,
-        },
+      };
+      return await onePerRound(ctx.db, `challengeA:${g.teamId}:${g.roundId}`, g.roundId, async (tx) => {
+        const ex = await tx.challengeA.findFirst({ where: { teamId: g.teamId, roundId: g.roundId ?? "" }, select: { id: true } });
+        return ex
+          ? await tx.challengeA.update({ where: { id: ex.id }, data })
+          : await tx.challengeA.create({ data });
       });
     }),
 
@@ -292,8 +311,8 @@ export const judgeRouter = createTRPCRouter({
       points += input.trackData.trackPoints;
       points += computePointsLOP(input.genericFormSchema.lackOfProgress);
 
-      return await ctx.db.challengeB.create({
-        data: {
+      const g = input.genericFormSchema;
+      const data = {
           trackPoints: input.trackData.trackPoints,
           patternsPassed: input.trackData.patternsPassed,
           lackOfProgress: input.genericFormSchema.lackOfProgress,
@@ -302,7 +321,12 @@ export const judgeRouter = createTRPCRouter({
           teamId: input.genericFormSchema.teamId,
           judgeID: ctx.session.user.id,
           roundId: input.genericFormSchema.roundId ?? "",
-        },
+      };
+      return await onePerRound(ctx.db, `challengeB:${g.teamId}:${g.roundId}`, g.roundId, async (tx) => {
+        const ex = await tx.challengeB.findFirst({ where: { teamId: g.teamId, roundId: g.roundId ?? "" }, select: { id: true } });
+        return ex
+          ? await tx.challengeB.update({ where: { id: ex.id }, data })
+          : await tx.challengeB.create({ data });
       });
     }),
 
@@ -321,8 +345,8 @@ export const judgeRouter = createTRPCRouter({
       points += input.crossedRampWithoutTouching ? 20 : 0;
       points += computePointsLOP(input.genericFormSchema.lackOfProgress);
 
-      return await ctx.db.challengeC.create({
-        data: {
+      const g = input.genericFormSchema;
+      const data = {
           detectedColors: input.detectedColors,
           finishedTrack: input.finishedTrack,
           obtainedBonus: input.genericFormSchema.obtainedBonus,
@@ -339,7 +363,12 @@ export const judgeRouter = createTRPCRouter({
           teamId: input.genericFormSchema.teamId,
           judgeID: ctx.session.user.id,
           roundId: input.genericFormSchema.roundId ?? "",
-        },
+      };
+      return await onePerRound(ctx.db, `challengeC:${g.teamId}:${g.roundId}`, g.roundId, async (tx) => {
+        const ex = await tx.challengeC.findFirst({ where: { teamId: g.teamId, roundId: g.roundId ?? "" }, select: { id: true } });
+        return ex
+          ? await tx.challengeC.update({ where: { id: ex.id }, data })
+          : await tx.challengeC.create({ data });
       });
     }),
 

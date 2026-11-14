@@ -75,6 +75,16 @@ export default function RoundControl({
     },
   });
 
+  const setScoreboard = api.admin.setScoreboardVisible.useMutation({
+    onSuccess(data) {
+      toast.success(`Scoreboard ${data.visible ? "shown" : "hidden"}`);
+      void refetchConfig();
+    },
+    onError(error) {
+      toast.error(`Error updating scoreboard: ${error.message}`);
+    },
+  });
+
   const handleToggleRound = (
     roundNumber: number,
     currentlyVisible: boolean,
@@ -156,6 +166,16 @@ export default function RoundControl({
             className="rounded-lg bg-red-600 px-6 py-2 hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-600"
           >
             Hide All Rounds
+          </button>
+
+          <button
+            onClick={() =>
+              setScoreboard.mutate({ visible: !config?.competitionStarted })
+            }
+            disabled={setScoreboard.isPending}
+            className="rounded-lg bg-purple-600 px-6 py-2 hover:bg-purple-700 disabled:cursor-not-allowed disabled:bg-gray-600"
+          >
+            {config?.competitionStarted ? "Hide Scoreboard" : "Show Scoreboard"}
           </button>
         </div>
 

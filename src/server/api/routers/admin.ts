@@ -40,6 +40,7 @@ export const adminRouter = createTRPCRouter({
   toggleRoundVisibility: roundControlRouter.toggleRoundVisibility,
   getRoundVisibilityStatus: roundControlRouter.getRoundVisibilityStatus,
   revealNextRound: roundControlRouter.revealNextRound,
+  setScoreboardVisible: roundControlRouter.setScoreboardVisible,
 
   // Interview Management
   getInterviewers: interviewManagementRouter.getInterviewers,
