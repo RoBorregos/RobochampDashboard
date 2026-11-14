@@ -9,7 +9,7 @@ import Header from "~/app/_components/header";
 import { makeGroups } from "rbrgs/lib/makeGroups";
 
 
-type Data = { groups: string[][]; picks: Record<string, string> };
+type Data = { groups: string[][]; picks: Record<string, string>; times?: Record<string, string> };
 type Slot = {
   name?: string;
   won?: boolean;
@@ -222,7 +222,7 @@ function CategoryBracket({
             <MatchCard
               accent
               scores={semiScores}
-              label={`Semifinal ${k + 1}`}
+              label={`Semifinal ${k + 1}${data.times?.[`s${k}`] ? ` · ${data.times[`s${k}`]}` : ""}`}
               slots={m.teams.map((t) => slot(`s${k}`, t))}
             />
           </Row>
@@ -234,6 +234,7 @@ function CategoryBracket({
           <MatchCard
             accent
             scores={finalScores}
+            label={data.times?.f ? `Final · ${data.times.f}` : undefined}
             slots={r.finalTeams.map((t) => slot("f", t))}
           />
         </Row>
@@ -285,7 +286,7 @@ export default function BracketsClient({ userRole }: { userRole?: Role }) {
     s && Array.isArray(s.groups) && s.groups.every(Array.isArray) && s.picks
       ? (s as Data)
       : { groups: makeGroups(teams), picks: {} };
-  const data = draft ?? saved_;
+  const data = { ...(draft ?? saved_), times: saved_.times }; // times are edited in Admin > Schedule
   const scores = Object.fromEntries(
     scoreboard.map((t) => [t.teamName, t.total]),
   );
