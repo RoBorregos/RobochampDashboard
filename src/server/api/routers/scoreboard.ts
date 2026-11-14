@@ -4,6 +4,9 @@ type TeamScores = {
   rounds: Record<number, { score: number }>;
   total: number;
   lastScore?: number;
+  category: string | null;
+  /** "Group 1".. from the saved bracket, so it follows bracket edits. */
+  group: string | null;
 };
 
 import { Role } from "@prisma/client";
@@ -22,8 +25,15 @@ export const scoreboardRouter = createTRPCRouter({
       select: {
         id: true,
         name: true,
+        category: true,
       },
     });
+    const brackets = await ctx.db.bracket.findMany();
+    const groupOf = new Map<string, string>();
+    for (const b of brackets)
+      ((b.data as { groups?: string[][] }).groups ?? []).forEach((g, i) =>
+        g.forEach((name) => groupOf.set(name, `Group ${i + 1}`)),
+      );
     const [challengesA, challengesB, challengesC, marsRuns] = await Promise.all([
       ctx.db.challengeA.findMany(),
       ctx.db.challengeB.findMany(),
@@ -77,6 +87,8 @@ export const scoreboardRouter = createTRPCRouter({
         teamName: team.name,
         rounds: {},
         total: 0,
+        category: team.category,
+        group: groupOf.get(team.name) ?? null,
       };
 
       const teamChallenges = challengesByTeam[team.id] ?? [];

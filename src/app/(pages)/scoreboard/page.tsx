@@ -6,6 +6,9 @@ import Header from "../../_components/header";
 import { api } from "~/trpc/react";
 import LogoLoader from "~/app/_components/logo-loader";
 import Title from "../../_components/title";
+import { useSession } from "next-auth/react";
+import { Role } from "@prisma/client";
+import { toast } from "sonner";
 
 type ProcessedTeam = {
   teamId: string;
@@ -14,6 +17,8 @@ type ProcessedTeam = {
   total?: number;
   lastScore: number;
   accumulated: number;
+  category?: string | null;
+  group?: string | null;
 };
 
 const TwitchEmbed = ({ channel }: { channel: string }) => (
@@ -34,6 +39,27 @@ export default function ScoreboardPage() {
     isLoading,
     refetch,
   } = api.scoreboard.getScoreboard.useQuery();
+
+  const role = useSession().data?.user?.role;
+  const staff = role === Role.ADMIN || role === Role.JUDGE;
+  const cancelRun = api.judge.cancelRun.useMutation({
+    onSuccess() {
+      toast("Run cancelled: the round now scores 0.");
+      refetch().catch(console.error);
+    },
+    onError(error) {
+      toast.error("Could not cancel the run.");
+      console.error(error);
+    },
+  });
+  const askCancel = (team: ProcessedTeam, round: number) => {
+    if (
+      window.prompt(
+        `Cancel ${team.teamName}'s round ${round}? It will score 0 points. Type "CANCEL" to confirm.`,
+      ) === "CANCEL"
+    )
+      cancelRun.mutate({ teamId: team.teamId, round });
+  };
 
   const { data: competitionStarted } =
     api.config.isCompetitionStarted.useQuery();
@@ -100,6 +126,8 @@ export default function ScoreboardPage() {
         total: typeof teamObj.total === "number" ? teamObj.total : undefined,
         lastScore,
         accumulated,
+        category: typeof teamObj.category === "string" ? teamObj.category : null,
+        group: typeof teamObj.group === "string" ? teamObj.group : null,
       };
     });
 
@@ -148,7 +176,14 @@ export default function ScoreboardPage() {
                           key={team.teamId}
                           className="border-b border-gray-700"
                         >
-                          <td className="p-4 font-medium">{team.teamName}</td>
+                          <td className="p-4 font-medium">
+                            {team.teamName}
+                            {team.group && (
+                              <span className="ml-2 text-xs text-slate-500">
+                                {team.category?.toLowerCase()} · {team.group}
+                              </span>
+                            )}
+                          </td>
                           <td className="p-4 text-right">{team.lastScore}</td>
                           <td className="p-4 text-right font-semibold">
                             {team.total ?? team.accumulated}
@@ -188,7 +223,29 @@ export default function ScoreboardPage() {
                   key={team.teamId}
                   className="border-b border-gray-700 transition-colors hover:bg-gray-800/30"
                 >
-                  <td className="p-4 font-medium">{team.teamName}</td>
+                  <td className="p-4 font-medium">
+                            {team.teamName}
+                            {team.group && (
+                              <span className="ml-2 text-xs text-slate-500">
+                                {team.category?.toLowerCase()} · {team.group}
+                              </span>
+                            )}
+                            {staff && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {Object.entries(team.rounds).map(([round, r]) => (
+                                  <button
+                                    key={round}
+                                    type="button"
+                                    disabled={cancelRun.isPending}
+                                    onClick={() => askCancel(team, Number(round))}
+                                    className="rounded border border-red-700 px-2 py-0.5 text-xs text-red-400 hover:bg-red-950 disabled:opacity-40"
+                                  >
+                                    R{round}: {(r as { score?: number }).score ?? 0} · Cancel run
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </td>
                   <td className="p-4 text-right">{team.lastScore}</td>
                   <td className="p-4 text-right font-semibold">
                     {team.total ?? team.accumulated}

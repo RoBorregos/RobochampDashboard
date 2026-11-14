@@ -30,8 +30,7 @@ export const adminRouter = createTRPCRouter({
 
   // Schedule Management
   uploadTeamData: scheduleManagementRouter.uploadTeamData,
-  regenerateSchedules: scheduleManagementRouter.regenerateSchedules,
-  generateSingleRound: scheduleManagementRouter.generateSingleRound,
+  generateFromBrackets: scheduleManagementRouter.generateFromBrackets,
   getScheduleTables: scheduleManagementRouter.getScheduleTables,
   updateChallengeTime: scheduleManagementRouter.updateChallengeTime,
 

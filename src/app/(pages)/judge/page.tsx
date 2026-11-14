@@ -1,6 +1,9 @@
 "use client";
 
-import { FormChallengeMars } from "../forms/FormChallengeMars";
+import { FormChallengeMars, liveKey } from "../forms/FormChallengeMars";
+import { MARS_ROUND_SECONDS } from "~/lib/marsScoring";
+import { freshTimer, RunTimer, type TimerState } from "../forms/RunTimer";
+import { useLiveRun } from "../forms/useLiveRun";
 
 import {
   Select,
@@ -10,7 +13,9 @@ import {
   SelectValue,
 } from "~/app/_components/shadcn/ui/select";
 import Header from "rbrgs/app/_components/header";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "~/trpc/react";
+import { judgeAssignment } from "~/lib/judgeRun";
 import { useSession } from "next-auth/react";
 import { Role } from "@prisma/client";
 import LogoLoader from "~/app/_components/logo-loader";
@@ -20,6 +25,21 @@ export default function JudgePage() {
   const [selected, setSelected] = useState("Sin seleccionar");
 
   const session = useSession();
+  const me = api.judge.me.useQuery();
+  const lineup = api.judge.lineup.useQuery(undefined, { refetchInterval: 60_000 });
+  const [tick, setTick] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  // Server-corrected clock, so a judge's wrong device time can't shift the schedule.
+  const offset = lineup.data ? lineup.data.serverNow.getTime() - lineup.dataUpdatedAt : 0;
+  const now = tick + offset;
+  const { judgeColor, judgeTrack } = me.data ?? {};
+  const auto =
+    judgeTrack && lineup.data
+      ? judgeAssignment(lineup.data.runs, judgeTrack, judgeColor ?? null, now)
+      : null;
 
   if (session.status === "loading") return <LogoLoader />;
 
@@ -48,6 +68,12 @@ export default function JudgePage() {
       </div>
       <div className="p-2">
         <JudgeRuns />
+        {auto ? (
+          <AutoRun auto={auto} now={now} offset={offset} />
+        ) : (<>
+        <p className="mb-4 text-center text-neutral-400">
+          Elige tu pista (y color) para seguir el horario automáticamente.
+        </p>
         <h1 className="mb-5 text-center text-4xl">Seleccionar Reto</h1>
         <div className="mx-auto lg:w-1/2">
           <Select
@@ -70,7 +96,7 @@ export default function JudgePage() {
 
         <div className="">
           <ShowForm selection={selected} />
-        </div>
+        </div></>)}
       </div>
     </main>
   );
@@ -94,5 +120,81 @@ const ChallengeWrapper = ({ children }: { children: React.ReactNode }) => {
     <div className="m-8 mx-auto rounded border border-white p-3 shadow-lg lg:w-1/2">
       {children}
     </div>
+  );
+};
+
+// Follows the schedule: the form is the judge's current run (by colour) and
+// finalizes itself when the next run on the track starts.
+const AutoRun = ({
+  auto,
+  now,
+  offset,
+}: {
+  auto: ReturnType<typeof judgeAssignment>;
+  now: number;
+  offset: number;
+}) => {
+  const { current, next, endsAt, nextEndsAt, other, otherEndsAt } = auto;
+  const [dontCare, setDontCare] = useState<string | null>(null);
+  // When time's up the next run takes over right away (its negative "starts in"
+  // countdown / calibration shows). The finished form stays one extra tick so its
+  // auto-finalize effect submits before it unmounts.
+  const showCurrent = current && now < endsAt! + 1500;
+  if (!showCurrent && other) {
+    const key = `${other.teamId}:${other.round}`;
+    if (dontCare === key)
+      return (
+        <ChallengeWrapper>
+          <FormChallengeMars key={key} run={other} now={now} endsAt={otherEndsAt!} offset={offset} next={next} />
+        </ChallengeWrapper>
+      );
+    return <Observer run={other} endsAt={otherEndsAt!} offset={offset} onDontCare={() => setDontCare(key)} />;
+  }
+  const run = showCurrent ? current : next;
+  if (!run) return <p className="my-8 text-center text-xl">Sin corridas asignadas.</p>;
+  return (
+    <ChallengeWrapper>
+      <FormChallengeMars
+        key={`${run.teamId}:${run.round}`}
+        run={run}
+        now={now}
+        endsAt={showCurrent ? endsAt! : nextEndsAt!}
+        offset={offset}
+        next={showCurrent ? next : auto.after}
+      />
+    </ChallengeWrapper>
+  );
+};
+
+// The other colour's run: a small clock synced with its judges. "Ignore colour" lets this
+// judge grade it anyway (e.g. a mix-up), on the same shared state as the other judges.
+const Observer = ({
+  run,
+  endsAt,
+  offset,
+  onDontCare,
+}: {
+  run: NonNullable<ReturnType<typeof judgeAssignment>["other"]>;
+  endsAt: number;
+  offset: number;
+  onDontCare: () => void;
+}) => {
+  const live = useLiveRun(liveKey(run));
+  return (
+    <ChallengeWrapper>
+      <p className="text-xs uppercase tracking-widest text-neutral-400">
+        Pista {run.track} · Round {run.round} · other colour
+      </p>
+      <p className="truncate text-2xl font-bold">{run.teamName}</p>
+      <RunTimer
+        timer={(live.data?.live.values.timer as TimerState | undefined) ?? freshTimer}
+        setTimer={() => undefined}
+        scheduledStart={run.start.getTime()}
+        nextMatchAt={endsAt}
+        maxMs={MARS_ROUND_SECONDS * 1000}
+        offset={offset}
+        action={{ label: "Ignore colour; begin grading", onClick: onDontCare }}
+      />
+    </ChallengeWrapper>
   );
 };

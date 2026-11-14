@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Role, ScheduleStatus } from "@prisma/client";
 import { createTRPCRouter, judgeProcedure, publicProcedure } from "../trpc";
 import { db } from "~/server/db";
+import { withLiveStatus } from "~/lib/bracketSchedule";
 
 type Row = {
   id: string;
@@ -29,7 +30,7 @@ export const trackOf =(name: string) =>
 async function loadRows(): Promise<Row[]> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.rows;
 
-  const [challenges, a, b, c] = await Promise.all([
+  const [challenges, a, b, c, mars] = await Promise.all([
     db.challenge.findMany({
       where: { round: { isVisible: true, team: { isActive: true } } },
       select: {
@@ -45,6 +46,7 @@ async function loadRows(): Promise<Row[]> {
     db.challengeA.findMany({ select: score, orderBy: { createdAt: "desc" } }),
     db.challengeB.findMany({ select: score, orderBy: { createdAt: "desc" } }),
     db.challengeC.findMany({ select: score, orderBy: { createdAt: "desc" } }),
+    db.marsRun.findMany({ select: score, orderBy: { createdAt: "desc" } }),
   ]);
 
   // judge forms store roundId as the round number string
@@ -55,22 +57,28 @@ async function loadRows(): Promise<Row[]> {
       if (!points.has(k)) points.set(k, s.points);
     }
 
+  // Mars runs have no track: a team runs once per round, so team+round identifies it.
+  const marsPoints = new Map<string, number>();
+  for (const s of mars) {
+    const k = `${s.teamId}|${s.roundId}`;
+    if (!marsPoints.has(k)) marsPoints.set(k, s.points);
+  }
+
   const rows: Row[] = [];
   for (const ch of challenges) {
     const team = ch.round.team;
     if (!team) continue;
     const track = trackOf(ch.name);
-    const pts = points.get(`${track}|${team.id}|${ch.round.number}`) ?? null;
+    const pts =
+      points.get(`${track}|${team.id}|${ch.round.number}`) ??
+      marsPoints.get(`${team.id}|${ch.round.number}`) ??
+      null;
     rows.push({
       id: ch.id,
       time: ch.time,
       team: team.name,
       track,
-      // a recorded score means the run is over, unless explicitly cancelled
-      status:
-        pts !== null && ch.status !== ScheduleStatus.CANCELLED
-          ? ScheduleStatus.FINALIZED
-          : ch.status,
+      status: ch.status, // stored: only DELAYED/CANCELLED mean anything; the rest is derived
       points: pts,
     });
   }
@@ -80,12 +88,13 @@ async function loadRows(): Promise<Row[]> {
 
 export const scheduleRouter = createTRPCRouter({
   board: publicProcedure.query(async ({ ctx }) => ({
-    rows: await loadRows(),
+    rows: withLiveStatus(await loadRows()),
     canEdit: ctx.session?.user.role === Role.ADMIN || ctx.session?.user.role === Role.JUDGE,
   })),
 
   setStatus: judgeProcedure
-    .input(z.object({ id: z.string(), status: z.nativeEnum(ScheduleStatus) }))
+    // ON_TIME = back to automatic
+    .input(z.object({ id: z.string(), status: z.enum(["ON_TIME", "DELAYED", "CANCELLED"]) }))
     .mutation(async ({ input }) => {
       await db.challenge.update({
         where: { id: input.id },

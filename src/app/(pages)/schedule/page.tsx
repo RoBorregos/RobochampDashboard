@@ -14,6 +14,8 @@ const STATUS = {
   CANCELLED: { label: "CANCELLED", cls: "text-red-500 line-through" },
 } as const;
 type Status = keyof typeof STATUS;
+const MANUAL = ["DELAYED", "CANCELLED"] as const;
+const isManual = (s: string): s is (typeof MANUAL)[number] => (MANUAL as readonly string[]).includes(s);
 
 const hhmm = (d: Date | string | number) =>
   new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -262,19 +264,23 @@ export default function SchedulePage() {
                 <span className="tabular-nums text-[#dfdfdf]">{hhmm(r.time)}</span>
                 <span className="truncate uppercase">{r.team}</span>
                 <span className="text-roboblue">{r.track}</span>
-                <span className={s.cls}>
+                <span className={`${s.cls} flex items-center gap-2`}>
                   {data?.canEdit ? (
                     <select
-                      value={r.status}
+                      value={isManual(r.status) ? r.status : "ON_TIME"}
                       disabled={setStatus.isPending}
                       onChange={(e) =>
-                        setStatus.mutate({ id: r.id, status: e.target.value as Status })
+                        setStatus.mutate({ id: r.id, status: e.target.value as (typeof MANUAL)[number] | "ON_TIME" })
                       }
                       className="w-full rounded border border-gray-700 bg-black text-inherit"
                     >
-                      {Object.entries(STATUS).map(([k, v]) => (
+                      {/* only DELAYED/CANCELLED are manual; the first option returns the run to automatic */}
+                      <option value="ON_TIME">
+                        {isManual(r.status) ? "AUTO" : s.label}
+                      </option>
+                      {MANUAL.map((k) => (
                         <option key={k} value={k}>
-                          {v.label}
+                          {STATUS[k].label}
                         </option>
                       ))}
                     </select>

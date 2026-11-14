@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure, adminProcedure } from "rbrgs/server/api/trpc";
 import { Prisma, BracketCategory } from "@prisma/client";
+import { syncSchedule } from "rbrgs/lib/bracketSchedule";
+import { invalidateSchedule } from "./schedule";
 
 // groups: team names per group (frozen on first save); picks: match id -> winner.
 const bracketDataSchema = z.object({
@@ -48,6 +50,9 @@ export const bracketRouter = createTRPCRouter({
         create: { category: input.category, data: payload },
         update: { data: payload },
       });
-      return { ok: true };
+      // The schedule is derived from the groups, so it follows every bracket save.
+      const sync = await syncSchedule(ctx.db, input.category, input.payload.groups);
+      invalidateSchedule();
+      return { ok: true, ...sync };
     }),
 });

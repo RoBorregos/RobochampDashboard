@@ -223,6 +223,13 @@ model MarsRun {
   team             Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
 }
 
+// Live state shared by the judges of one run (see src/lib/liveRun.ts). key: "<teamId>:<round>".
+model LiveRun {
+  key     String @id
+  data    Json
+  version Int    @default(0)
+}
+
 model ChallengeB {
   id               String    @id @default(cuid())
   trackPoints      Int

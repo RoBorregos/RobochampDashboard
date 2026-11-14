@@ -1,15 +1,34 @@
 import { z } from "zod";
 
 import { createTRPCRouter, judgeProcedure as baseJudgeProcedure } from "rbrgs/server/api/trpc";
-import { JudgeColor } from "@prisma/client";
-import { invalidateSchedule } from "./schedule";
+import { JudgeColor, type Prisma, type PrismaClient } from "@prisma/client";
+import { TRPCError } from "@trpc/server";
+import { applyLive, emptyLive, liveOpSchema, type LiveState } from "rbrgs/lib/liveRun";
+import { invalidateSchedule, trackOf } from "./schedule";
 import {
   challengeASchema,
   challengeBSchema,
   challengeCSchema,
   marsSchema,
 } from "rbrgs/lib/schemas";
-import { computeMarsPoints } from "rbrgs/lib/marsScoring";
+import { MARS_ROUND_SECONDS, computeMarsPoints } from "rbrgs/lib/marsScoring";
+import { env } from "rbrgs/env";
+import { LIVE_CHANNEL } from "rbrgs/lib/liveRun";
+
+const realtime = env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Tells the run's judges to refetch it (see useLiveRun). Awaited: a serverless function may freeze once it responds.
+const pingLive = async (key: string) => {
+  if (!realtime) return;
+  await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/realtime/v1/api/broadcast`, {
+    method: "POST",
+    headers: {
+      apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      Authorization: `Bearer ${env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ messages: [{ topic: LIVE_CHANNEL, event: "ping", payload: { key } }] }),
+  }).catch((e) => console.error("realtime ping failed", e)); // judges still refetch every 30s
+};
 
 // Any judge write (score create/delete) may change the public schedule board.
 const judgeProcedure = baseJudgeProcedure.use(async ({ next }) => {
@@ -17,6 +36,29 @@ const judgeProcedure = baseJudgeProcedure.use(async ({ next }) => {
   invalidateSchedule();
   return result;
 });
+
+// Every judge on a run polls it twice a second: serve those from memory so the DB sees
+// at most one read per run per LIVE_TTL_MS. Writes still go through the DB (version check).
+// shortcut: per server instance; with several instances each one reads on its own, upgrade to push (Supabase Realtime) if that's too much.
+const LIVE_TTL_MS = 400;
+const liveCache = new Map<string, { at: number; live: Promise<LiveState> }>();
+const readLive = (db: PrismaClient, key: string) =>
+  db.liveRun
+    .findUnique({ where: { key } })
+    .then((row) => (row?.data as unknown as LiveState) ?? emptyLive);
+const cachedLive = (db: Parameters<typeof readLive>[0], key: string) => {
+  // With pings, reads only follow a write: a stale cache on another server instance would stick.
+  if (realtime) return readLive(db, key);
+  const hit = liveCache.get(key);
+  if (hit && Date.now() - hit.at < LIVE_TTL_MS) return hit.live;
+  // Cache the promise, so polls arriving together share one query.
+  const live = readLive(db, key).catch((e) => {
+    liveCache.delete(key);
+    throw e;
+  });
+  liveCache.set(key, { at: Date.now(), live });
+  return live;
+};
 
 const computePointsLOP = (_lackOfProgress: number) => {
   return 0;
@@ -29,6 +71,32 @@ export const judgeRouter = createTRPCRouter({
       select: { judgeColor: true, judgeTrack: true },
     }),
   ),
+
+  // Every scheduled run of the active teams plus the server clock, so the
+  // judge's page can follow the schedule without trusting the device clock.
+  lineup: baseJudgeProcedure.query(async ({ ctx }) => {
+    const rounds = await ctx.db.round.findMany({
+      where: { team: { isActive: true } },
+      select: {
+        number: true,
+        team: { select: { id: true, name: true, category: true } },
+        challenges: { select: { name: true, time: true } },
+      },
+    });
+    const runs = rounds.flatMap((r) =>
+      r.team
+        ? r.challenges.map((c) => ({
+            teamId: r.team!.id,
+            teamName: r.team!.name,
+            category: r.team!.category,
+            round: r.number,
+            track: trackOf(c.name),
+            start: c.time,
+          }))
+        : [],
+    );
+    return { serverNow: new Date(), runs };
+  }),
 
   setColor: baseJudgeProcedure
     .input(z.object({ color: z.nativeEnum(JudgeColor) }))
@@ -50,21 +118,110 @@ export const judgeRouter = createTRPCRouter({
       }),
     ),
 
+  // Shared state of one run, polled by every judge watching it.
+  live: baseJudgeProcedure
+    .input(z.object({ key: z.string().max(100) }))
+    .query(async ({ ctx, input }) => {
+      return { serverNow: Date.now(), live: await cachedLive(ctx.db, input.key) };
+    }),
+
+  // One judge's tap. ok: false when refused (locked by another judge or stale): the
+  // returned state is the truth to show.
+  liveSet: baseJudgeProcedure
+    .input(z.object({ key: z.string().max(100), from: z.unknown() }).and(liveOpSchema))
+    .mutation(async ({ ctx, input }) => {
+      // Optimistic concurrency on `version`: retry when another judge wrote in between.
+      for (let i = 0; i < 5; i++) {
+        const row = await ctx.db.liveRun.findUnique({ where: { key: input.key } });
+        const live = (row?.data as unknown as LiveState) ?? emptyLive;
+        const now = Date.now();
+        const next = applyLive(live, input, ctx.session.user.id, now);
+        const cache = (l: LiveState) => liveCache.set(input.key, { at: Date.now(), live: Promise.resolve(l) });
+        if (!next) {
+          cache(live);
+          return { ok: false, serverNow: now, live };
+        }
+        const data = next as unknown as Prisma.InputJsonValue;
+        const saved = row
+          ? (await ctx.db.liveRun.updateMany({
+              where: { key: input.key, version: row.version },
+              data: { data, version: { increment: 1 } },
+            })).count > 0
+          : await ctx.db.liveRun.create({ data: { key: input.key, data } }).then(() => true, () => false);
+        if (saved) {
+          cache(next);
+          await pingLive(input.key);
+          return { ok: true, serverNow: now, live: next };
+        }
+      }
+      throw new TRPCError({ code: "CONFLICT", message: "Too many judges at once, try again." });
+    }),
+
   roundMars: judgeProcedure
     .input(marsSchema)
     .mutation(async ({ ctx, input }) => {
       const { genericFormSchema: g, ...run } = input;
-      return await ctx.db.marsRun.create({
-        data: {
-          ...run,
-          lackOfProgress: g.lackOfProgress,
-          roundTimeSeconds: g.roundTimeSeconds,
-          roundId: g.roundId ?? "",
-          teamId: g.teamId,
-          judgeID: ctx.session.user.id,
-          points: computeMarsPoints(run.category, run, g.roundTimeSeconds),
-        },
+      // The rubric comes from the team's category, never from the judge's form.
+      const team = await ctx.db.team.findUnique({ where: { id: g.teamId }, select: { category: true } });
+      if (!team?.category)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Team has no category (Beginners/Advanced) set." });
+      if (team.category !== run.category)
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Team is ${team.category}, form was scored as ${run.category}.` });
+      const data = {
+        ...run,
+        lackOfProgress: g.lackOfProgress,
+        roundTimeSeconds: g.roundTimeSeconds,
+        roundId: g.roundId ?? "",
+        teamId: g.teamId,
+        judgeID: ctx.session.user.id,
+        points: computeMarsPoints(run.category, run, g.roundTimeSeconds),
+      };
+      if (!g.roundId) return await ctx.db.marsRun.create({ data });
+      // A scheduled run has one result: every judge on it auto-finalizes at the same
+      // moment, so the later submit updates the first instead of doubling it.
+      return await ctx.db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`mars:${g.teamId}:${g.roundId}`}))`;
+        // A cancelled run stays at 0 even when its judges' forms auto-finalize later.
+        const live = await tx.liveRun.findUnique({ where: { key: `${g.teamId}:${g.roundId}` } });
+        if ((live?.data as unknown as LiveState | undefined)?.values.cancelled) {
+          data.points = 0;
+          data.roundTimeSeconds = MARS_ROUND_SECONDS;
+        }
+        const existing = await tx.marsRun.findFirst({
+          where: { teamId: g.teamId, roundId: g.roundId },
+          select: { id: true },
+        });
+        return existing
+          ? await tx.marsRun.update({ where: { id: existing.id }, data })
+          : await tx.marsRun.create({ data });
       });
+    }),
+
+  // Cancels a team's round: every score in it becomes 0, now and on any later submit.
+  cancelRun: judgeProcedure
+    .input(z.object({ teamId: z.string(), round: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const key = `${input.teamId}:${input.round}`;
+      const where = { teamId: input.teamId, roundId: String(input.round) };
+      await ctx.db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`mars:${key}`}))`;
+        const row = await tx.liveRun.findUnique({ where: { key } });
+        const live = (row?.data as unknown as LiveState) ?? emptyLive;
+        // Cancelling ends the run and bills it the max run time (for the rubric), whatever it really was.
+        const now = Date.now();
+        const timer = { startedAt: null, runStartedAt: now - MARS_ROUND_SECONDS * 1000, stoppedAt: now };
+        const values = { ...live.values, cancelled: true, timer };
+        const data = { ...live, values } as unknown as Prisma.InputJsonValue;
+        // Bumping the version makes a judge's concurrent liveSet retry on top of this.
+        await tx.liveRun.upsert({ where: { key }, create: { key, data }, update: { data, version: { increment: 1 } } });
+        await tx.marsRun.updateMany({ where, data: { points: 0, roundTimeSeconds: MARS_ROUND_SECONDS } });
+        await tx.challengeA.updateMany({ where, data: { points: 0 } });
+        await tx.challengeB.updateMany({ where, data: { points: 0 } });
+        await tx.challengeC.updateMany({ where, data: { points: 0 } });
+      });
+      liveCache.delete(key);
+      await pingLive(key);
+      return { ok: true };
     }),
 
   roundMarsDelete: judgeProcedure
