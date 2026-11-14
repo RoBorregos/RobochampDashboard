@@ -47,10 +47,7 @@ const COUNTERS = [
   { name: "seeds", label: "Seeds planted" },
 ] as const;
 
-const CATEGORIES = [
-  { value: "BEGINNERS", label: "Principiantes" },
-  { value: "ADVANCED", label: "Avanzados" },
-] as const;
+const CATEGORIES = { BEGINNERS: "Principiantes", ADVANCED: "Avanzados" } as const;
 
 type AutoProps = {
   run?: LineupRun;
@@ -150,7 +147,7 @@ export const FormChallengeMars = ({
   };
   useEffect(() => {
     if (!live) return;
-    for (const field of ["category", "panels", "speedBumps", "stairs", "seeds", "seesawCrossed", "lackOfProgress"] as const) {
+    for (const field of ["panels", "speedBumps", "stairs", "seeds", "seesawCrossed", "lackOfProgress"] as const) {
       const v = live.values[field];
       if (v !== undefined && form.getValues(formField(field)) !== v) form.setValue(formField(field), v as never);
     }
@@ -179,7 +176,6 @@ export const FormChallengeMars = ({
     if (!run) return;
     form.setValue("genericFormSchema.teamId", run.teamId);
     form.setValue("genericFormSchema.roundId", String(run.round));
-    if (run.category) form.setValue("category", run.category);
   }, [run, form]);
   // The run clock fills the round time until the judge stops it.
   useEffect(() => {
@@ -227,14 +223,15 @@ export const FormChallengeMars = ({
       void form.handleSubmit((data) => createEvaluation.mutate(data))();
   }, [over, cancelled, finalized, form, createEvaluation]);
 
-  // Switching category lowers the caps, so clamp counts that would exceed them
-  // (the server does the same for the shared state).
-  function setCategory(category: FormData["category"]) {
-    write("category", category);
-    for (const { name } of COUNTERS) {
-      form.setValue(name, Math.min(Number(values[name]), MARS_LIMITS[category][name]));
-    }
-  }
+  // The rubric follows the selected team's category; a lower cap clamps counts that exceed it.
+  const teamCategory =
+    run?.category ?? teamIds?.find((t) => t.id === values.genericFormSchema.teamId)?.category ?? null;
+  useEffect(() => {
+    if (!teamCategory || form.getValues("category") === teamCategory) return;
+    form.setValue("category", teamCategory);
+    for (const { name } of COUNTERS)
+      form.setValue(name, Math.min(Number(form.getValues(name)), MARS_LIMITS[teamCategory][name]));
+  }, [teamCategory, form]);
 
   return (
     <Form {...form}>
@@ -295,25 +292,11 @@ export const FormChallengeMars = ({
           )}
         </div>
         <fieldset disabled={cancelled} className="space-y-4 disabled:opacity-40">
-        <div className="grid grid-cols-2 gap-2">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              aria-pressed={values.category === c.value}
-              onClick={() => setCategory(c.value)}
-              disabled={locked("category")}
-              className={cn(
-                "min-h-14 rounded-lg border-2 font-medium transition active:scale-[0.98] disabled:opacity-40",
-                values.category === c.value
-                  ? "border-white bg-white text-black"
-                  : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500",
-              )}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
+        <p className={cn("rounded-lg border-2 p-3 text-center font-medium", teamCategory ? "border-white" : "border-red-500 text-red-400")}>
+          {teamCategory
+            ? `Rúbrica: ${CATEGORIES[teamCategory]}`
+            : "Elige un equipo para cargar su rúbrica (el equipo debe tener categoría)."}
+        </p>
 
         <div className="grid gap-3 sm:grid-cols-2">
           {COUNTERS.filter(({ name }) => limits[name] > 0).map(

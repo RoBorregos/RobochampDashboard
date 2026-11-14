@@ -161,6 +161,12 @@ export const judgeRouter = createTRPCRouter({
     .input(marsSchema)
     .mutation(async ({ ctx, input }) => {
       const { genericFormSchema: g, ...run } = input;
+      // The rubric comes from the team's category, never from the judge's form.
+      const team = await ctx.db.team.findUnique({ where: { id: g.teamId }, select: { category: true } });
+      if (!team?.category)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Team has no category (Beginners/Advanced) set." });
+      if (team.category !== run.category)
+        throw new TRPCError({ code: "BAD_REQUEST", message: `Team is ${team.category}, form was scored as ${run.category}.` });
       const data = {
         ...run,
         lackOfProgress: g.lackOfProgress,
