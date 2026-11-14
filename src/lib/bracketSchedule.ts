@@ -96,7 +96,7 @@ export function buildRuns(
   const warnings: string[] = [];
 
   WINDOWS[category].forEach(([agendaFrom, to], r) => {
-    const from = starts[r] ? toMin(starts[r]!) : agendaFrom;
+    const from = starts[r] ? toMin(starts[r]) : agendaFrom;
     to += from - agendaFrom;
     const slots = Math.max(queues.A.length, queues.B.length);
     if (slots * SLOT_MS > (to - from) * MIN)
