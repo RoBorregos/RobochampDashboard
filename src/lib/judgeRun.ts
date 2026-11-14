@@ -34,7 +34,13 @@ export function judgeAssignment(
     );
   const current = [...mine].reverse().find((r) => r.start.getTime() <= now) ?? null;
   const next = mine.find((r) => r.start.getTime() > now) ?? null;
+  // The other colour's run whose slot is live: this judge watches it (cooldown, then its run time).
+  const other = color
+    ? (all.find((r) => !mine.includes(r) && r.start.getTime() <= now && now < endOf(r)) ?? null)
+    : null;
   return {
+    other,
+    otherEndsAt: other ? endOf(other) : null,
     current,
     endsAt: current ? endOf(current) : null,
     next,

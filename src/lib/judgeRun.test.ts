@@ -16,4 +16,8 @@ const b = judgeAssignment(runs, "A", "BLUE", min(12));
 assert.equal(b.current?.teamId, "t2");
 assert.equal(b.endsAt, min(20));
 assert.equal(judgeAssignment(runs, "A", "BLUE", min(5)).current, null);
+assert.equal(judgeAssignment(runs, "A", "GREEN", min(11)).other?.teamId, "t2"); // blue's run live
+assert.equal(judgeAssignment(runs, "A", "GREEN", min(5)).other, null);
+assert.equal(judgeAssignment(runs, "A", "BLUE", min(5)).other?.teamId, "t1");
+assert.equal(judgeAssignment(runs, "A", null, min(11)).other, null); // no colour: every run is theirs
 console.log("ok");

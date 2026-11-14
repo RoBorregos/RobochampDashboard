@@ -17,6 +17,7 @@ import { useSession } from "next-auth/react";
 import { Role } from "@prisma/client";
 import LogoLoader from "~/app/_components/logo-loader";
 import { JudgeRuns } from "./JudgeRuns";
+import { CALIBRATION_MS, formatClock } from "../forms/RunTimer";
 
 export default function JudgePage() {
   const [selected, setSelected] = useState("Sin seleccionar");
@@ -131,10 +132,22 @@ const AutoRun = ({
   now: number;
   offset: number;
 }) => {
-  const { current, next, endsAt, nextEndsAt } = auto;
-  // A finished run lingers a minute (for its auto-finalize), then the upcoming
-  // run takes over so its negative "starts in" countdown shows.
-  const showCurrent = current && now < endsAt! + 60_000;
+  const { current, next, endsAt, nextEndsAt, other, otherEndsAt } = auto;
+  const [dontCare, setDontCare] = useState<string | null>(null);
+  // When time's up the next run takes over right away (its negative "starts in"
+  // countdown / calibration shows). The finished form stays one extra tick so its
+  // auto-finalize effect submits before it unmounts.
+  const showCurrent = current && now < endsAt! + 1500;
+  if (!showCurrent && other) {
+    const key = `${other.teamId}:${other.round}`;
+    if (dontCare === key)
+      return (
+        <ChallengeWrapper>
+          <FormChallengeMars key={key} run={other} now={now} endsAt={otherEndsAt!} offset={offset} next={next} />
+        </ChallengeWrapper>
+      );
+    return <Observer run={other} now={now} endsAt={otherEndsAt!} onDontCare={() => setDontCare(key)} />;
+  }
   const run = showCurrent ? current : next;
   if (!run) return <p className="my-8 text-center text-xl">Sin corridas asignadas.</p>;
   return (
@@ -147,6 +160,49 @@ const AutoRun = ({
         offset={offset}
         next={showCurrent ? next : auto.after}
       />
+    </ChallengeWrapper>
+  );
+};
+
+// The other colour's run: a cooldown while its judge calibrates, then the same run time
+// every judge sees. "Don't care" lets this judge evaluate it anyway (e.g. a mix-up).
+const Observer = ({
+  run,
+  now,
+  endsAt,
+  onDontCare,
+}: {
+  run: NonNullable<ReturnType<typeof judgeAssignment>["other"]>;
+  now: number;
+  endsAt: number;
+  onDontCare: () => void;
+}) => {
+  const calEnd = run.start.getTime() + CALIBRATION_MS;
+  const cal = now < calEnd;
+  return (
+    <ChallengeWrapper>
+      <div className="text-center">
+        <p className="text-xs uppercase tracking-widest text-neutral-400">
+          Pista {run.track} · Round {run.round} · other colour
+        </p>
+        <p className="truncate text-2xl font-bold">{run.teamName}</p>
+        <p className={`mt-3 text-xs uppercase tracking-widest ${cal ? "text-sky-400" : "text-neutral-400"}`}>
+          {cal ? "Cooldown · other judge calibrating" : "Run time"}
+        </p>
+        <p className={`font-digital text-6xl tabular-nums ${cal ? "text-sky-400" : "text-neutral-300"}`}>
+          {cal && "-"}
+          {formatClock(cal ? calEnd - now : Math.min(now, endsAt) - calEnd)}
+        </p>
+        {!cal && (
+          <button
+            type="button"
+            onClick={onDontCare}
+            className="mt-3 h-12 w-full rounded-lg border-2 border-amber-400 bg-amber-400/20 text-sm font-semibold"
+          >
+            Don&apos;t care
+          </button>
+        )}
+      </div>
     </ChallengeWrapper>
   );
 };

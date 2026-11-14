@@ -1,4 +1,4 @@
-import type { BracketCategory, PrismaClient } from "@prisma/client";
+import { ScheduleStatus, type BracketCategory, type PrismaClient } from "@prisma/client";
 
 const MIN = 60_000;
 /** 2 min calibration + 8 min execution. */
@@ -12,6 +12,33 @@ export function runPhase(start: number, now: number) {
   return e < CALIBRATION_MS
     ? { label: "CALIBRATION", left: CALIBRATION_MS - e }
     : { label: "RUNNING", left: SLOT_MS - e };
+}
+
+const MANUAL: ScheduleStatus[] = [ScheduleStatus.DELAYED, ScheduleStatus.CANCELLED];
+
+// Status follows the clock; DELAYED/CANCELLED set by a judge/admin override it.
+export function withLiveStatus<R extends { time: Date; status: ScheduleStatus; points: number | null }>(
+  rows: R[],
+  now = Date.now(),
+): R[] {
+  const t = (r: R) => new Date(r.time).getTime();
+  const nextStart = Math.min(
+    ...rows.filter((r) => t(r) > now && !MANUAL.includes(r.status)).map(t),
+  );
+  return rows.map((r) => {
+    if (MANUAL.includes(r.status)) return r;
+    if (r.points !== null) return { ...r, status: ScheduleStatus.FINALIZED };
+    const phase = runPhase(t(r), now);
+    if (phase)
+      return {
+        ...r,
+        status: phase.label === "CALIBRATION" ? ScheduleStatus.IN_CALIBRATION : ScheduleStatus.IN_ROUND,
+      };
+    // time's up with no score: counts as 0 (display only, nothing written)
+    if (now >= t(r) + SLOT_MS) return { ...r, status: ScheduleStatus.FINALIZED, points: 0 };
+    if (t(r) === nextStart) return { ...r, status: ScheduleStatus.IN_PREPARATION };
+    return { ...r, status: ScheduleStatus.ON_TIME };
+  });
 }
 
 export const mmss = (ms: number) => {

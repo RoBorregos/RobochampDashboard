@@ -11,13 +11,11 @@ import { Button } from "~/app/_components/shadcn/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "rbrgs/app/_components/shadcn/ui/form";
-import { Input } from "rbrgs/app/_components/shadcn/ui/input";
 import { marsSchema } from "rbrgs/lib/schemas";
 import {
   MARS_LIMITS,
@@ -78,6 +76,12 @@ export const FormChallengeMars = ({
 
   const values = form.watch();
   const limits = MARS_LIMITS[values.category];
+  // Max without the time bonus (perfect run at the buzzer): 150 beginners, 190 advanced.
+  const maxPoints = computeMarsPoints(
+    values.category,
+    { ...MARS_LIMITS[values.category], seesawCrossed: true },
+    MARS_ROUND_SECONDS,
+  );
   const preview = computeMarsPoints(
     values.category,
     {
@@ -186,7 +190,10 @@ export const FormChallengeMars = ({
                 {run?.teamName ?? options.find((o) => o.value === values.genericFormSchema.teamId)?.label ?? "—"}
               </p>
             </div>
-            <p className="shrink-0 font-digital text-4xl text-roboblue">{preview}</p>
+            <p className="shrink-0 font-digital text-4xl text-roboblue">
+              {preview}
+              <span className="text-xl text-neutral-500"> / {maxPoints}</span>
+            </p>
           </div>
           <RunTimer
             timer={timer}
@@ -250,43 +257,19 @@ export const FormChallengeMars = ({
           onChange={(checked) => form.setValue("seesawCrossed", checked)}
         />
 
-        <p className="text-right text-lg">
-          Points: <span className="font-digital text-3xl">{preview}</span>
+        {/* Per the rules a lack of progress costs no points: the robot just goes back to its last checkpoint. */}
+        <CounterButton
+          label="Lack of progress (back to last checkpoint, no points lost)"
+          count={Number(values.genericFormSchema.lackOfProgress) || 0}
+          onChange={(count) => form.setValue("genericFormSchema.lackOfProgress", count)}
+        />
+        <p className="text-sm text-neutral-400">
+          Round time (from the run timer):{" "}
+          <span className="font-digital text-xl text-white">
+            {Number(values.genericFormSchema.roundTimeSeconds) || 0}
+          </span>{""}
+          s / {MARS_ROUND_SECONDS}s · time left is +1 pt/sec only with a perfect score.
         </p>
-
-        <FormField
-          control={form.control}
-          name="genericFormSchema.roundTimeSeconds"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Round Time</FormLabel>
-              <FormDescription>
-                In seconds, competition time only (max {MARS_ROUND_SECONDS}).
-                Time left is +1 pt/sec only with a perfect score.
-              </FormDescription>
-              <FormControl>
-                <Input type="number" min={0} max={MARS_ROUND_SECONDS} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="genericFormSchema.lackOfProgress"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Lack of Progress</FormLabel>
-              <FormDescription>
-                Input -1 if the team didn&apos;t attempt the round.
-              </FormDescription>
-              <FormControl>
-                <Input type="number" min={-1} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
         <FormField
           control={form.control}
           name="genericFormSchema.teamId"

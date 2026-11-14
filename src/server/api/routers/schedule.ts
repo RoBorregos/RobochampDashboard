@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Role, ScheduleStatus } from "@prisma/client";
 import { createTRPCRouter, judgeProcedure, publicProcedure } from "../trpc";
 import { db } from "~/server/db";
+import { withLiveStatus } from "~/lib/bracketSchedule";
 
 type Row = {
   id: string;
@@ -77,11 +78,7 @@ async function loadRows(): Promise<Row[]> {
       time: ch.time,
       team: team.name,
       track,
-      // a recorded score means the run is over, unless explicitly cancelled
-      status:
-        pts !== null && ch.status !== ScheduleStatus.CANCELLED
-          ? ScheduleStatus.FINALIZED
-          : ch.status,
+      status: ch.status, // stored: only DELAYED/CANCELLED mean anything; the rest is derived
       points: pts,
     });
   }
@@ -91,12 +88,13 @@ async function loadRows(): Promise<Row[]> {
 
 export const scheduleRouter = createTRPCRouter({
   board: publicProcedure.query(async ({ ctx }) => ({
-    rows: await loadRows(),
+    rows: withLiveStatus(await loadRows()),
     canEdit: ctx.session?.user.role === Role.ADMIN || ctx.session?.user.role === Role.JUDGE,
   })),
 
   setStatus: judgeProcedure
-    .input(z.object({ id: z.string(), status: z.nativeEnum(ScheduleStatus) }))
+    // ON_TIME = back to automatic
+    .input(z.object({ id: z.string(), status: z.enum(["ON_TIME", "DELAYED", "CANCELLED"]) }))
     .mutation(async ({ input }) => {
       await db.challenge.update({
         where: { id: input.id },
