@@ -9,7 +9,8 @@ type TeamScores = {
   group: string | null;
 };
 
-import { Role } from "@prisma/client";
+import { BracketCategory, Role } from "@prisma/client";
+import { makeGroups } from "rbrgs/lib/makeGroups";
 import { createTRPCRouter, publicProcedure } from "../trpc";
 import { Round } from "rbrgs/lib/round";
 
@@ -30,10 +31,15 @@ export const scoreboardRouter = createTRPCRouter({
     });
     const brackets = await ctx.db.bracket.findMany();
     const groupOf = new Map<string, string>();
-    for (const b of brackets)
-      ((b.data as { groups?: string[][] }).groups ?? []).forEach((g, i) =>
-        g.forEach((name) => groupOf.set(name, `Group ${i + 1}`)),
-      );
+    // Same rule as the brackets page: a category without a saved bracket gets the default groups.
+    for (const cat of [BracketCategory.BEGINNERS, BracketCategory.ADVANCED]) {
+      const saved = (brackets.find((b) => b.category === cat)?.data as { groups?: unknown } | undefined)?.groups;
+      const groups =
+        Array.isArray(saved) && saved.every(Array.isArray)
+          ? (saved as string[][])
+          : makeGroups(teams.filter((t) => t.category === cat).map((t) => t.name));
+      groups.forEach((g, i) => g.forEach((name) => groupOf.set(name, `Group ${i + 1}`)));
+    }
     const [challengesA, challengesB, challengesC, marsRuns] = await Promise.all([
       ctx.db.challengeA.findMany(),
       ctx.db.challengeB.findMany(),
