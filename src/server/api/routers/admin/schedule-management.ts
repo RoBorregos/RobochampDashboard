@@ -3,6 +3,7 @@ import { parse } from "csv-parse";
 import fs from "fs";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { invalidateSchedule } from "../schedule";
 
 // Helper function to compute date from time string
 const ComputeDate = ({ date }: { date: string | undefined }) => {
@@ -22,6 +23,17 @@ const ComputeDate = ({ date }: { date: string | undefined }) => {
   d.setMinutes(parseInt(minute ?? "0"));
   return d;
 };
+
+type Cell = {
+  id: string;
+  team: string;
+  time: string;
+  initialTime: string;
+  status: string;
+};
+
+const hhmm = (d: Date) =>
+  d.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
 
 export const scheduleManagementRouter = createTRPCRouter({
   // Existing uploadTeamData procedure
@@ -67,9 +79,9 @@ export const scheduleManagementRouter = createTRPCRouter({
               number: 1,
               challenges: {
                 create: [
-                  { name: "Pista A", time: ComputeDate({ date: row[1] }) },
-                  { name: "Pista B", time: ComputeDate({ date: row[2] }) },
-                  { name: "Pista C", time: ComputeDate({ date: row[3] }) },
+                  { name: "Pista A", time: ComputeDate({ date: row[1] }), initialTime: ComputeDate({ date: row[1] }) },
+                  { name: "Pista B", time: ComputeDate({ date: row[2] }), initialTime: ComputeDate({ date: row[2] }) },
+                  { name: "Pista C", time: ComputeDate({ date: row[3] }), initialTime: ComputeDate({ date: row[3] }) },
                 ],
               },
             },
@@ -81,9 +93,9 @@ export const scheduleManagementRouter = createTRPCRouter({
               number: 2,
               challenges: {
                 create: [
-                  { name: "Pista A", time: ComputeDate({ date: row[4] }) },
-                  { name: "Pista B", time: ComputeDate({ date: row[5] }) },
-                  { name: "Pista C", time: ComputeDate({ date: row[6] }) },
+                  { name: "Pista A", time: ComputeDate({ date: row[4] }), initialTime: ComputeDate({ date: row[4] }) },
+                  { name: "Pista B", time: ComputeDate({ date: row[5] }), initialTime: ComputeDate({ date: row[5] }) },
+                  { name: "Pista C", time: ComputeDate({ date: row[6] }), initialTime: ComputeDate({ date: row[6] }) },
                 ],
               },
             },
@@ -94,9 +106,9 @@ export const scheduleManagementRouter = createTRPCRouter({
               number: 3,
               challenges: {
                 create: [
-                  { name: "Pista A", time: ComputeDate({ date: row[7] }) },
-                  { name: "Pista B", time: ComputeDate({ date: row[8] }) },
-                  { name: "Pista C", time: ComputeDate({ date: row[9] }) },
+                  { name: "Pista A", time: ComputeDate({ date: row[7] }), initialTime: ComputeDate({ date: row[7] }) },
+                  { name: "Pista B", time: ComputeDate({ date: row[8] }), initialTime: ComputeDate({ date: row[8] }) },
+                  { name: "Pista C", time: ComputeDate({ date: row[9] }), initialTime: ComputeDate({ date: row[9] }) },
                 ],
               },
             },
@@ -215,6 +227,7 @@ export const scheduleManagementRouter = createTRPCRouter({
                   roundId: roundRecord.id,
                   name: `${challengeName} - ${pistaName}`,
                   time: ComputeDate({ date: timeString }),
+                  initialTime: ComputeDate({ date: timeString }),
                 },
               });
             }
@@ -337,6 +350,7 @@ export const scheduleManagementRouter = createTRPCRouter({
                 roundId: roundRecord.id,
                 name: `${challengeName} - ${pistaName}`,
                 time: ComputeDate({ date: timeString }),
+                initialTime: ComputeDate({ date: timeString }),
               },
             });
           }
@@ -352,6 +366,22 @@ export const scheduleManagementRouter = createTRPCRouter({
         tablesGenerated: 3, // 3 tables for this round
         startTime,
       };
+    }),
+
+  // Edit one run's time, keeping the first scheduled time for comparison.
+  updateChallengeTime: adminProcedure
+    .input(z.object({ id: z.string(), time: z.string().regex(/^\d{2}:\d{2}$/) }))
+    .mutation(async ({ ctx, input }) => {
+      const ch = await ctx.db.challenge.findUnique({ where: { id: input.id } });
+      if (!ch) throw new TRPCError({ code: "NOT_FOUND" });
+      await ctx.db.challenge.update({
+        where: { id: input.id },
+        data: {
+          initialTime: ch.initialTime ?? ch.time,
+          time: ComputeDate({ date: input.time }),
+        },
+      });
+      invalidateSchedule();
     }),
 
   getScheduleTables: adminProcedure.query(async ({ ctx }) => {
@@ -378,7 +408,7 @@ export const scheduleManagementRouter = createTRPCRouter({
 
         const timeMap = new Map<
           string,
-          { pistaA: string; pistaB: string; pistaC: string }
+          Record<"pistaA" | "pistaB" | "pistaC", Cell | null>
         >();
 
         for (const team of activeTeams) {
@@ -399,18 +429,21 @@ export const scheduleManagementRouter = createTRPCRouter({
           });
 
           if (!timeMap.has(timeKey)) {
-            timeMap.set(timeKey, { pistaA: "", pistaB: "", pistaC: "" });
+            timeMap.set(timeKey, { pistaA: null, pistaB: null, pistaC: null });
           }
 
           const entry = timeMap.get(timeKey)!;
 
-          if (challenge.name.includes("Pista A")) {
-            entry.pistaA = team.name;
-          } else if (challenge.name.includes("Pista B")) {
-            entry.pistaB = team.name;
-          } else if (challenge.name.includes("Pista C")) {
-            entry.pistaC = team.name;
-          }
+          const cell: Cell = {
+            id: challenge.id,
+            team: team.name,
+            time: hhmm(challenge.time),
+            initialTime: hhmm(challenge.initialTime ?? challenge.time),
+            status: challenge.status,
+          };
+          if (challenge.name.includes("Pista A")) entry.pistaA = cell;
+          else if (challenge.name.includes("Pista B")) entry.pistaB = cell;
+          else if (challenge.name.includes("Pista C")) entry.pistaC = cell;
         }
 
         // Convert to sorted array

@@ -167,6 +167,7 @@ model Challenge {
   id      String           @id @default(cuid())
   name    String
   time    DateTime
+  initialTime DateTime? // first scheduled time; differs from time once an admin edits it
   status  ScheduleStatus   @default(ON_TIME)
   roundId String
   round   Round            @relation(fields: [roundId], references: [id], onDelete: Cascade)

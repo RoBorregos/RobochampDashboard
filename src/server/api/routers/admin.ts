@@ -33,6 +33,7 @@ export const adminRouter = createTRPCRouter({
   regenerateSchedules: scheduleManagementRouter.regenerateSchedules,
   generateSingleRound: scheduleManagementRouter.generateSingleRound,
   getScheduleTables: scheduleManagementRouter.getScheduleTables,
+  updateChallengeTime: scheduleManagementRouter.updateChallengeTime,
 
   // Round Control
   getConfig: roundControlRouter.getConfig,

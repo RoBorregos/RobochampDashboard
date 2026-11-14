@@ -126,6 +126,7 @@ export const testingUtilitiesRouter = createTRPCRouter({
                 roundId: roundRecord.id,
                 name: `${challengeName} - ${pistaName}`,
                 time: ComputeDate({ date: timeString }),
+                initialTime: ComputeDate({ date: timeString }),
               },
             });
           }

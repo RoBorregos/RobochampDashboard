@@ -1,11 +1,19 @@
 import { z } from "zod";
 
-import { createTRPCRouter, judgeProcedure } from "rbrgs/server/api/trpc";
+import { createTRPCRouter, judgeProcedure as baseJudgeProcedure } from "rbrgs/server/api/trpc";
+import { invalidateSchedule } from "./schedule";
 import {
   challengeASchema,
   challengeBSchema,
   challengeCSchema,
 } from "rbrgs/lib/schemas";
+
+// Any judge write (score create/delete) may change the public schedule board.
+const judgeProcedure = baseJudgeProcedure.use(async ({ next }) => {
+  const result = await next();
+  invalidateSchedule();
+  return result;
+});
 
 const computePointsLOP = (_lackOfProgress: number) => {
   return 0;
