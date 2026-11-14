@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { createTRPCRouter, judgeProcedure as baseJudgeProcedure } from "rbrgs/server/api/trpc";
+import { createTRPCRouter, judgeProcedure as baseJudgeProcedure, adminProcedure } from "rbrgs/server/api/trpc";
 import { JudgeColor, type Prisma, type PrismaClient } from "@prisma/client";
 import { TRPCError } from "@trpc/server";
 import { applyLive, emptyLive, liveOpSchema, type LiveState } from "rbrgs/lib/liveRun";
@@ -236,6 +236,31 @@ export const judgeRouter = createTRPCRouter({
       liveCache.delete(key);
       await pingLive(key);
       return { ok: true };
+    }),
+
+  // Admin override: sets a team's score for a round directly. A later judge submit for the same round recomputes and replaces it.
+  setRoundScore: adminProcedure
+    .input(z.object({ teamId: z.string(), round: z.number().int().min(1).max(3), points: z.number().int().min(0).max(1000) }))
+    .mutation(async ({ ctx, input }) => {
+      const where = { teamId: input.teamId, roundId: String(input.round) };
+      return await ctx.db.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`mars:${input.teamId}:${input.round}`}))`;
+        const data = { points: input.points };
+        const counts = await Promise.all([
+          tx.marsRun.updateMany({ where, data }),
+          tx.challengeA.updateMany({ where, data }),
+          tx.challengeB.updateMany({ where, data }),
+          tx.challengeC.updateMany({ where, data }),
+        ]);
+        if (counts.some((c) => c.count > 0)) return { ok: true };
+        const team = await tx.team.findUnique({ where: { id: input.teamId }, select: { category: true } });
+        if (!team?.category)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Team has no category (Beginners/Advanced) set." });
+        await tx.marsRun.create({
+          data: { ...where, ...data, category: team.category, lackOfProgress: 0, roundTimeSeconds: 0, judgeID: ctx.session.user.id },
+        });
+        return { ok: true };
+      });
     }),
 
   roundMarsDelete: judgeProcedure
