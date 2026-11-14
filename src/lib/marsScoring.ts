@@ -12,7 +12,7 @@ export const MARS_POINTS = {
 } as const;
 
 export const MARS_LIMITS = {
-  BEGINNERS: { panels: 5, speedBumps: 2, stairs: 0, seeds: 3 }, // 140 pts
+  BEGINNERS: { panels: 5, speedBumps: 3, stairs: 0, seeds: 3 }, // 150 pts
   ADVANCED: { panels: 5, speedBumps: 3, stairs: 0, seeds: 3 }, // 150 pts
 } as const;
 
@@ -24,7 +24,7 @@ export type MarsCounts = {
   seesawCrossed: boolean;
 };
 
-/** Points for one round. The 1 pt/sec time bonus only applies at full score. */
+/** Points for one round. The 1 pt/sec time bonus needs full score; Beginners may skip panels for a halved bonus. */
 export function computeMarsPoints(
   category: MarsCategory,
   v: MarsCounts,
@@ -39,12 +39,20 @@ export function computeMarsPoints(
     (v.seesawCrossed ? MARS_POINTS.seesaw : 0);
 
   const perfect =
-    v.panels === max.panels &&
     v.speedBumps === max.speedBumps &&
     v.stairs === max.stairs &&
     v.seeds === max.seeds &&
     v.seesawCrossed;
 
-  const bonus = perfect ? Math.max(0, MARS_ROUND_SECONDS - roundTimeSeconds) : 0;
+  const remaining = Math.max(0, MARS_ROUND_SECONDS - roundTimeSeconds);
+  const allPanels = v.panels === max.panels;
+  // Beginners only: without every panel restored the bonus is 1 pt per 2 s.
+  const bonus = !perfect
+    ? 0
+    : allPanels
+      ? remaining
+      : category === "BEGINNERS"
+        ? Math.floor(remaining / 2)
+        : 0;
   return zone1 + zone2 + bonus;
 }

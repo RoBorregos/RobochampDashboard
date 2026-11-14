@@ -82,7 +82,7 @@ export const FormChallengeMars = ({
 
   const values = form.watch();
   const limits = MARS_LIMITS[values.category];
-  // Max without the time bonus (perfect run at the buzzer): 150 beginners, 190 advanced.
+  // Max without the time bonus (perfect run at the buzzer): 150 for both categories.
   const maxPoints = computeMarsPoints(
     values.category,
     { ...MARS_LIMITS[values.category], seesawCrossed: true },
