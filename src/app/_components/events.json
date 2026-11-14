@@ -8,12 +8,12 @@
     { "time": "14:00 – 14:30", "activity": "Lunch", "category": "Both", "duration": "30 min" },
     { "time": "14:50 – 16:00", "activity": "Info session (IMT/IE) + Laboratory tour", "category": "Advanced", "duration": "70 min" },
     { "time": "15:15 – 16:45", "activity": "Round 1 - Qualification", "category": "Beginners", "duration": "90 min" },
-    { "time": "17:00 – 17:20", "activity": "Semifinal (Top 4)", "category": "Advanced", "duration": "20 min" },
-    { "time": "17:20 – 17:40", "activity": "Semifinal (Top 4)", "category": "Beginners", "duration": "20 min" },
-    { "time": "17:45 – 18:00", "activity": "Final", "category": "Advanced", "duration": "15 min" },
-    { "time": "18:00 – 18:15", "activity": "Final", "category": "Beginners", "duration": "15 min" },
-    { "time": "18:15 – 18:30", "activity": "Deliberation", "category": "Both", "duration": "15 min" },
-    { "time": "18:30 – 19:00", "activity": "Awards", "category": "Both", "duration": "30 min" },
-    { "time": "19:00 – 19:30", "activity": "Photo, Acknowledgments and Closing", "category": "Both", "duration": "30 min" }
+    { "time": "17:20 – 17:40", "activity": "Semifinal (Top 4)", "category": "Advanced", "duration": "20 min" },
+    { "time": "17:40 – 18:00", "activity": "Semifinal (Top 4)", "category": "Beginners", "duration": "20 min" },
+    { "time": "18:05 – 18:20", "activity": "Final", "category": "Advanced", "duration": "15 min" },
+    { "time": "18:20 – 18:35", "activity": "Final", "category": "Beginners", "duration": "15 min" },
+    { "time": "18:35 – 18:50", "activity": "Deliberation", "category": "Both", "duration": "15 min" },
+    { "time": "18:50 – 19:20", "activity": "Awards", "category": "Both", "duration": "30 min" },
+    { "time": "19:20 – 19:50", "activity": "Photo, Acknowledgments and Closing", "category": "Both", "duration": "30 min" }
   ]
 }
