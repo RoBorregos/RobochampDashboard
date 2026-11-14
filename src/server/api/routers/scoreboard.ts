@@ -120,7 +120,7 @@ export const scoreboardRouter = createTRPCRouter({
         if (isNaN(roundId)) continue;
         const isRoundC = (roundId as Round) === Round.C;
         // Round C and the knockouts (semi 4, final 5) stay hidden from non-admins while frozen.
-        const points = (isRoundC || roundId > Round.C) && isFrozen ? 0 : ch.points;
+        const points = (isRoundC || (roundId as Round) > Round.C) && isFrozen ? 0 : ch.points;
         const existing = scores.rounds[roundId]?.score ?? 0;
         scores.rounds[roundId] = { score: existing + (points ?? 0) };
       }
@@ -140,7 +140,7 @@ export const scoreboardRouter = createTRPCRouter({
         scores.semi = hide(scores.rounds[4]?.score);
         scores.final = hide(scores.rounds[5]?.score);
         scores.lastScore =
-          roundId > Round.C && isFrozen ? null : isRoundC && isFrozen ? 0 : mostRecent.points;
+          (roundId as Round) > Round.C && isFrozen ? null : isRoundC && isFrozen ? 0 : mostRecent.points;
       } else {
         scores.lastScore = 0;
         scores.total = 0;
