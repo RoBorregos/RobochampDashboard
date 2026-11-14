@@ -1,6 +1,9 @@
 "use client";
 
-import { FormChallengeMars } from "../forms/FormChallengeMars";
+import { FormChallengeMars, liveKey } from "../forms/FormChallengeMars";
+import { MARS_ROUND_SECONDS } from "~/lib/marsScoring";
+import { freshTimer, RunTimer, type TimerState } from "../forms/RunTimer";
+import { useLiveRun } from "../forms/useLiveRun";
 
 import {
   Select,
@@ -17,7 +20,6 @@ import { useSession } from "next-auth/react";
 import { Role } from "@prisma/client";
 import LogoLoader from "~/app/_components/logo-loader";
 import { JudgeRuns } from "./JudgeRuns";
-import { CALIBRATION_MS, formatClock } from "../forms/RunTimer";
 
 export default function JudgePage() {
   const [selected, setSelected] = useState("Sin seleccionar");
@@ -146,7 +148,7 @@ const AutoRun = ({
           <FormChallengeMars key={key} run={other} now={now} endsAt={otherEndsAt!} offset={offset} next={next} />
         </ChallengeWrapper>
       );
-    return <Observer run={other} now={now} endsAt={otherEndsAt!} onDontCare={() => setDontCare(key)} />;
+    return <Observer run={other} endsAt={otherEndsAt!} offset={offset} onDontCare={() => setDontCare(key)} />;
   }
   const run = showCurrent ? current : next;
   if (!run) return <p className="my-8 text-center text-xl">Sin corridas asignadas.</p>;
@@ -164,45 +166,35 @@ const AutoRun = ({
   );
 };
 
-// The other colour's run: a cooldown while its judge calibrates, then the same run time
-// every judge sees. "Don't care" lets this judge evaluate it anyway (e.g. a mix-up).
+// The other colour's run: a small clock synced with its judges. "Ignore colour" lets this
+// judge grade it anyway (e.g. a mix-up), on the same shared state as the other judges.
 const Observer = ({
   run,
-  now,
   endsAt,
+  offset,
   onDontCare,
 }: {
   run: NonNullable<ReturnType<typeof judgeAssignment>["other"]>;
-  now: number;
   endsAt: number;
+  offset: number;
   onDontCare: () => void;
 }) => {
-  const calEnd = run.start.getTime() + CALIBRATION_MS;
-  const cal = now < calEnd;
+  const live = useLiveRun(liveKey(run));
   return (
     <ChallengeWrapper>
-      <div className="text-center">
-        <p className="text-xs uppercase tracking-widest text-neutral-400">
-          Pista {run.track} · Round {run.round} · other colour
-        </p>
-        <p className="truncate text-2xl font-bold">{run.teamName}</p>
-        <p className={`mt-3 text-xs uppercase tracking-widest ${cal ? "text-sky-400" : "text-neutral-400"}`}>
-          {cal ? "Cooldown · other judge calibrating" : "Run time"}
-        </p>
-        <p className={`font-digital text-6xl tabular-nums ${cal ? "text-sky-400" : "text-neutral-300"}`}>
-          {cal && "-"}
-          {formatClock(cal ? calEnd - now : Math.min(now, endsAt) - calEnd)}
-        </p>
-        {!cal && (
-          <button
-            type="button"
-            onClick={onDontCare}
-            className="mt-3 h-12 w-full rounded-lg border-2 border-amber-400 bg-amber-400/20 text-sm font-semibold"
-          >
-            Don&apos;t care
-          </button>
-        )}
-      </div>
+      <p className="text-xs uppercase tracking-widest text-neutral-400">
+        Pista {run.track} · Round {run.round} · other colour
+      </p>
+      <p className="truncate text-2xl font-bold">{run.teamName}</p>
+      <RunTimer
+        timer={(live.data?.live.values.timer as TimerState | undefined) ?? freshTimer}
+        setTimer={() => undefined}
+        scheduledStart={run.start.getTime()}
+        nextMatchAt={endsAt}
+        maxMs={MARS_ROUND_SECONDS * 1000}
+        offset={offset}
+        action={{ label: "Ignore colour; begin grading", onClick: onDontCare }}
+      />
     </ChallengeWrapper>
   );
 };

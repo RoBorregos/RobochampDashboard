@@ -14,12 +14,15 @@ export function CounterButton({
   max,
   points,
   onChange,
+  locked,
 }: {
   label: string;
   count: number;
   max?: number;
   points?: number;
   onChange: (count: number) => void;
+  /** Another judge just changed it. */
+  locked?: boolean;
 }) {
   const full = max !== undefined && count >= max;
 
@@ -28,8 +31,9 @@ export function CounterButton({
       <button
         type="button"
         onClick={() => onChange(full ? count : count + 1)}
+        disabled={locked}
         className={cn(
-          "flex min-h-32 w-full select-none flex-col justify-between gap-2 rounded-lg border-2 p-4 pr-16 text-left transition active:scale-[0.98]",
+          "flex min-h-32 w-full select-none flex-col justify-between gap-2 rounded-lg border-2 p-4 pr-16 text-left transition active:scale-[0.98] disabled:opacity-40 disabled:grayscale",
           full
             ? "border-green-500 bg-green-500/10"
             : count > 0
@@ -55,7 +59,7 @@ export function CounterButton({
         type="button"
         aria-label={`Remove one: ${label}`}
         onClick={() => onChange(Math.max(0, count - 1))}
-        disabled={count === 0}
+        disabled={count === 0 || locked}
         className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full border border-red-500/70 bg-black text-2xl leading-none text-red-400 hover:bg-red-500/20 disabled:opacity-30"
       >
         −
@@ -88,7 +92,7 @@ export function ToggleButton({
       onClick={() => onChange(!checked)}
       disabled={disabled}
       className={cn(
-        "flex min-h-20 w-full select-none items-center gap-4 rounded-lg border-2 p-4 text-left transition active:scale-[0.98] disabled:opacity-40",
+        "flex min-h-20 w-full select-none items-center gap-4 rounded-lg border-2 p-4 text-left transition active:scale-[0.98] disabled:opacity-40 disabled:grayscale",
         checked
           ? "border-green-500 bg-green-500/10"
           : "border-neutral-700 bg-neutral-900 hover:border-neutral-500",

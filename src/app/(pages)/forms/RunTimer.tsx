@@ -63,6 +63,8 @@ export function RunTimer({
   nextMatchAt,
   maxMs,
   offset,
+  locked,
+  action,
 }: {
   timer: TimerState;
   setTimer: (update: (t: TimerState) => TimerState) => void;
@@ -70,6 +72,10 @@ export function RunTimer({
   nextMatchAt: number | null;
   maxMs: number;
   offset: number;
+  /** Another judge just pressed a timer button. */
+  locked?: boolean;
+  /** Small read-only clock with just this button (a judge of the other colour watching). */
+  action?: { label: string; onClick: () => void };
 }) {
   const at = useFrameClock(offset);
   const clock = () => Date.now() + offset;
@@ -145,13 +151,13 @@ export function RunTimer({
     );
 
   const button =
-    "h-12 flex-1 rounded-lg border-2 text-sm font-semibold transition active:scale-[0.98]";
+    "h-12 flex-1 rounded-lg border-2 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-40 disabled:grayscale";
 
   return (
     <div className="mt-3 rounded-lg border border-neutral-800 bg-neutral-950 p-3">
       <span className={cn("text-xs uppercase tracking-widest", labelTone)}>{label}</span>
       <div className="flex items-end justify-between gap-3">
-        <p className={cn("font-digital text-6xl tabular-nums leading-tight", tone)}>
+        <p className={cn("font-digital tabular-nums leading-tight", action ? "text-3xl" : "text-6xl", tone)}>
           {(phase === "cooldown" || phase === "waiting") && "-"}
           {formatClock(ms)}
           {limit !== null && (
@@ -172,8 +178,16 @@ export function RunTimer({
           )
         )}
       </div>
-      <div className="mt-2 flex gap-2">
-        {phase === "idle" || phase === "waiting" ? (
+      <fieldset disabled={locked} className="mt-2 flex gap-2">
+        {action ? (
+          <button
+            type="button"
+            onClick={action.onClick}
+            className={cn(button, "border-amber-400 bg-amber-400/20")}
+          >
+            {action.label}
+          </button>
+        ) : phase === "idle" || phase === "waiting" ? (
           <button
             type="button"
             onClick={() =>
@@ -204,7 +218,7 @@ export function RunTimer({
             Stop
           </button>
         )}
-        {(phase === "run" || phase === "cooldown") && (
+        {!action && (phase === "run" || phase === "cooldown") && (
           <button
             type="button"
             onClick={restartRun}
@@ -213,7 +227,7 @@ export function RunTimer({
             Restart run
           </button>
         )}
-        {(timer.startedAt !== null || timer.runStartedAt !== null) && (
+        {!action && (timer.startedAt !== null || timer.runStartedAt !== null) && (
           <button
             type="button"
             onClick={() => setTimer(() => freshTimer)}
@@ -222,7 +236,7 @@ export function RunTimer({
             {scheduledStart !== null ? "Use schedule" : "Reset"}
           </button>
         )}
-      </div>
+      </fieldset>
     </div>
   );
 }

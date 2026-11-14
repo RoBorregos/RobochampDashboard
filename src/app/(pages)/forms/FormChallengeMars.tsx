@@ -28,6 +28,15 @@ import { cn } from "~/lib/utils";
 import { RunTimer, freshTimer, timerMath, type TimerState } from "./RunTimer";
 import type { LineupRun } from "~/lib/judgeRun";
 import { CounterButton, ToggleButton } from "./ScoreButtons";
+import { useSession } from "next-auth/react";
+import type { LiveField, LiveOp } from "~/lib/liveRun";
+import { useLiveRun } from "./useLiveRun";
+
+/** Live state key of a scheduled run, shared by every judge on it (either colour). */
+export const liveKey = (run: LineupRun) => `${run.teamId}:${run.round}`;
+
+const formField = (field: LiveField) =>
+  field === "lackOfProgress" ? "genericFormSchema.lackOfProgress" : (field as Exclude<LiveField, "lackOfProgress" | "timer">);
 
 type FormData = z.infer<typeof marsSchema>;
 
@@ -99,7 +108,57 @@ export const FormChallengeMars = ({
   useEffect(() => {
     if (teamId) form.setValue("genericFormSchema.teamId", teamId);
   }, [teamId, form]);
-  const [timer, setTimer] = useState<TimerState>(freshTimer);
+  // A scheduled run syncs counts, timer and button locks with the other judges on it;
+  // a hand-picked one stays local to this page.
+  const key = run ? liveKey(run) : null;
+  const me = useSession().data?.user?.id;
+  const utils = api.useUtils();
+  const live = useLiveRun(key).data?.live;
+  // Re-render when the soonest lock expires, so its button un-grays on time.
+  const [, rerender] = useState(0);
+  useEffect(() => {
+    const wait = Math.min(...Object.values(live?.locks ?? {}).map((l) => l.until)) - (Date.now() + offset);
+    if (!(wait > 0 && wait < 10_000)) return;
+    const id = setTimeout(() => rerender((n) => n + 1), wait + 50);
+    return () => clearTimeout(id);
+  }, [live, offset]);
+  const liveSet = api.judge.liveSet.useMutation({
+    async onMutate(op) {
+      await utils.judge.live.cancel({ key: op.key });
+      utils.judge.live.setData({ key: op.key }, (d) =>
+        d && { ...d, live: { ...d.live, values: { ...d.live.values, [op.field]: op.value } } },
+      );
+    },
+    onSuccess(res, op) {
+      utils.judge.live.setData({ key: op.key }, res);
+      if (!res.ok) toast("Otro juez acaba de cambiar esto, ya se sincronizó.");
+    },
+    onError(error, op) {
+      void utils.judge.live.invalidate({ key: op.key });
+      toast.error("No se pudo sincronizar, intenta de nuevo.");
+      console.error(error);
+    },
+  });
+  const write = <F extends LiveField>(field: F, value: Extract<LiveOp, { field: F }>["value"]) => {
+    if (key) liveSet.mutate({ key, field, value, from: live?.values[field] } as Parameters<typeof liveSet.mutate>[0]);
+    else form.setValue(formField(field), value as never);
+  };
+  // Grayed out for a moment after another judge taps it (server-enforced too).
+  const locked = (field: LiveField) => {
+    const l = live?.locks[field];
+    return !!l && l.by !== me && l.until > Date.now() + offset;
+  };
+  useEffect(() => {
+    if (!live) return;
+    for (const field of ["category", "panels", "speedBumps", "stairs", "seeds", "seesawCrossed", "lackOfProgress"] as const) {
+      const v = live.values[field];
+      if (v !== undefined && form.getValues(formField(field)) !== v) form.setValue(formField(field), v as never);
+    }
+  }, [live, form]);
+  const [localTimer, setLocalTimer] = useState<TimerState>(freshTimer);
+  const timer = key ? ((live?.values.timer as TimerState | undefined) ?? freshTimer) : localTimer;
+  const setTimer = (update: (t: TimerState) => TimerState) =>
+    key ? write("timer", update(timer)) : setLocalTimer(update);
   const { anchor, elapsedAt } = timerMath(timer, run?.start.getTime() ?? null, MARS_ROUND_SECONDS * 1000);
   const [finalized, setFinalized] = useState(false);
   // Only finalize a run this page saw live; opening it late must not save a blank score.
@@ -156,9 +215,10 @@ export const FormChallengeMars = ({
       void form.handleSubmit((data) => createEvaluation.mutate(data))();
   }, [over, finalized, form, createEvaluation]);
 
-  // Switching category lowers the caps, so clamp counts that would exceed them.
+  // Switching category lowers the caps, so clamp counts that would exceed them
+  // (the server does the same for the shared state).
   function setCategory(category: FormData["category"]) {
-    form.setValue("category", category);
+    write("category", category);
     for (const { name } of COUNTERS) {
       form.setValue(name, Math.min(Number(values[name]), MARS_LIMITS[category][name]));
     }
@@ -202,6 +262,7 @@ export const FormChallengeMars = ({
             nextMatchAt={endsAt ?? null}
             maxMs={MARS_ROUND_SECONDS * 1000}
             offset={offset}
+            locked={locked("timer")}
           />
           {run && (
             <p className="mt-2 text-xs text-neutral-400">
@@ -224,8 +285,9 @@ export const FormChallengeMars = ({
               type="button"
               aria-pressed={values.category === c.value}
               onClick={() => setCategory(c.value)}
+              disabled={locked("category")}
               className={cn(
-                "min-h-14 rounded-lg border-2 font-medium transition active:scale-[0.98]",
+                "min-h-14 rounded-lg border-2 font-medium transition active:scale-[0.98] disabled:opacity-40",
                 values.category === c.value
                   ? "border-white bg-white text-black"
                   : "border-neutral-700 bg-neutral-900 text-neutral-400 hover:border-neutral-500",
@@ -245,7 +307,8 @@ export const FormChallengeMars = ({
                 count={Number(values[name])}
                 max={limits[name]}
                 points={MARS_POINTS[name]}
-                onChange={(count) => form.setValue(name, count)}
+                onChange={(count) => write(name, count)}
+                locked={locked(name)}
               />
             ),
           )}
@@ -254,14 +317,16 @@ export const FormChallengeMars = ({
           label="Crossed the seesaw (sube y baja)"
           points={MARS_POINTS.seesaw}
           checked={values.seesawCrossed}
-          onChange={(checked) => form.setValue("seesawCrossed", checked)}
+          onChange={(checked) => write("seesawCrossed", checked)}
+          disabled={locked("seesawCrossed")}
         />
 
         {/* Per the rules a lack of progress costs no points: the robot just goes back to its last checkpoint. */}
         <CounterButton
           label="Lack of progress (back to last checkpoint, no points lost)"
           count={Number(values.genericFormSchema.lackOfProgress) || 0}
-          onChange={(count) => form.setValue("genericFormSchema.lackOfProgress", count)}
+          onChange={(count) => write("lackOfProgress", count)}
+          locked={locked("lackOfProgress")}
         />
         <p className="text-sm text-neutral-400">
           Round time (from the run timer):{" "}
