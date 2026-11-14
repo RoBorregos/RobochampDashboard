@@ -78,7 +78,13 @@ model User {
   role             Role             @default(UNASSIGNED)
   teamId           String?
   isStaff          Boolean          @default(false)
-  accounts         Account[]
+  // Simultaneous judging: GREEN judges take odd runs of a track, BLUE the even ones.
+  judgeColor       JudgeColor?
+  // Track ("A".."C") this judge covers; only that track's runs are shown to them.
+  judgeTrack       String?
+  // "Don't care": this judge also takes this one challenge, whatever their colour.
+  dontCareChallengeId String?
+  accounts        Account[]
   judgedChallengeA ChallengeA[]
   judgedChallengeB ChallengeB[]
   judgedChallengeC ChallengeC[]
@@ -261,6 +267,11 @@ model Config {
   roundsRevealed     Int     @default(0)
 
   @@map("config")
+}
+
+enum JudgeColor {
+  GREEN
+  BLUE
 }
 
 enum BracketCategory {
