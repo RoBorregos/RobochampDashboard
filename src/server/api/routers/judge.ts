@@ -64,6 +64,27 @@ const computePointsLOP = (_lackOfProgress: number) => {
   return 0;
 };
 
+// A scheduled run has one result per team and round: a resubmit updates it instead of adding a second row.
+async function upsertScheduled(
+  db: PrismaClient,
+  model: "challengeA" | "challengeB" | "challengeC",
+  teamId: string,
+  roundId: string | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any,
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const m = (tx: Prisma.TransactionClient) => tx[model] as any;
+  if (!roundId) return await m(db).create({ data });
+  return await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${model}:${teamId}:${roundId}`}))`;
+    const existing = await m(tx).findFirst({ where: { teamId, roundId }, select: { id: true } });
+    return existing
+      ? await m(tx).update({ where: { id: existing.id }, data })
+      : await m(tx).create({ data });
+  });
+}
+
 export const judgeRouter = createTRPCRouter({
   me: baseJudgeProcedure.query(({ ctx }) =>
     ctx.db.user.findUniqueOrThrow({
@@ -264,8 +285,7 @@ export const judgeRouter = createTRPCRouter({
 
       points += computePointsLOP(input.genericFormSchema.lackOfProgress);
 
-      return await ctx.db.challengeA.create({
-        data: {
+      return await upsertScheduled(ctx.db, "challengeA", input.genericFormSchema.teamId, input.genericFormSchema.roundId, {
           finishedTrack: input.finishedTrack,
           obtainedBonus: input.genericFormSchema.obtainedBonus,
           roundTimeSeconds: input.genericFormSchema.roundTimeSeconds,
@@ -281,8 +301,7 @@ export const judgeRouter = createTRPCRouter({
           seesawCrossings: seesaw,
           cablesCut: cables,
           incorrectCut: incorrect,
-        },
-      });
+        });
     }),
 
   roundB: judgeProcedure
@@ -292,8 +311,7 @@ export const judgeRouter = createTRPCRouter({
       points += input.trackData.trackPoints;
       points += computePointsLOP(input.genericFormSchema.lackOfProgress);
 
-      return await ctx.db.challengeB.create({
-        data: {
+      return await upsertScheduled(ctx.db, "challengeB", input.genericFormSchema.teamId, input.genericFormSchema.roundId, {
           trackPoints: input.trackData.trackPoints,
           patternsPassed: input.trackData.patternsPassed,
           lackOfProgress: input.genericFormSchema.lackOfProgress,
@@ -302,8 +320,7 @@ export const judgeRouter = createTRPCRouter({
           teamId: input.genericFormSchema.teamId,
           judgeID: ctx.session.user.id,
           roundId: input.genericFormSchema.roundId ?? "",
-        },
-      });
+        });
     }),
 
   roundC: judgeProcedure
@@ -321,8 +338,7 @@ export const judgeRouter = createTRPCRouter({
       points += input.crossedRampWithoutTouching ? 20 : 0;
       points += computePointsLOP(input.genericFormSchema.lackOfProgress);
 
-      return await ctx.db.challengeC.create({
-        data: {
+      return await upsertScheduled(ctx.db, "challengeC", input.genericFormSchema.teamId, input.genericFormSchema.roundId, {
           detectedColors: input.detectedColors,
           finishedTrack: input.finishedTrack,
           obtainedBonus: input.genericFormSchema.obtainedBonus,
@@ -339,8 +355,7 @@ export const judgeRouter = createTRPCRouter({
           teamId: input.genericFormSchema.teamId,
           judgeID: ctx.session.user.id,
           roundId: input.genericFormSchema.roundId ?? "",
-        },
-      });
+        });
     }),
 
   getTeamIds: judgeProcedure.query(async ({ ctx }) => {
