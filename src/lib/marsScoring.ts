@@ -12,8 +12,8 @@ export const MARS_POINTS = {
 } as const;
 
 export const MARS_LIMITS = {
-  BEGINNERS: { panels: 6, speedBumps: 2, stairs: 0, seeds: 3 }, // 150 pts
-  ADVANCED: { panels: 6, speedBumps: 3, stairs: 2, seeds: 3 }, // 190 pts
+  BEGINNERS: { panels: 5, speedBumps: 2, stairs: 0, seeds: 3 }, // 140 pts
+  ADVANCED: { panels: 5, speedBumps: 3, stairs: 0, seeds: 3 }, // 150 pts
 } as const;
 
 export type MarsCounts = {
